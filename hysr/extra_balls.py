@@ -1,0 +1,196 @@
+import typing
+import pam_mujoco
+from .scene import Scene
+from .ball_behavior import TrajectoryGetter, RandomRecordedTrajectory
+
+
+INT_OR_LIST = typing.Union[int, typing.Sequence[int]]
+
+
+class ExtraBallsSet:
+
+    """
+    Class for managing extra balls as well as their mujoco simulation.
+    A set of extra balls is a set of balls which are all simulated by the same mujoco simulation,
+    which is expected to mirror the real (or pseudo real) robot.
+    The mujoco simulation as configured by this class will run in accelerated time and in
+    bursting mode.
+
+    Args:
+         setid: id of the extra ball set (arbitrary, but must be different of all sets)
+         graphics: if the mujoco simulation should run graphics
+         scene : position and orientation of the table and robot
+         contact: which contact between the enviromnent and the balls should be
+                  monitored (default: the racket of the robot)
+         trajectory_getter: instance of ball_behavior.TrajectoryGetter. Will be used
+                            to set the trajectories the balls will be required to follow
+    """
+
+    def __init__(
+        self,
+        setid: int,
+        nb_balls: int,
+        graphics: bool,
+        scene: Scene,
+        contact: pam_mujoco.ContactTypes = pam_mujoco.ContactTypes.racket1,
+        trajectory_getter: TrajectoryGetter = RandomRecordedTrajectory(),
+    ):
+
+        self._size = nb_balls
+
+        # the mujoco simulation this constructor will configure, i.e it is assumed
+        # that in a terminal ```pam_mujoco {mujoco_id}``` was called
+        self._mujoco_id = self.get_mujoco_id(setid)
+
+        # will be used to setup the trajectories performed by the balls
+        self._trajectory_getter = trajectory_getter
+
+        # for creating o80 frontends pointings to the correct shared memory
+        # (the corresponding o80 backends are hosted by the mujoco simulation)
+        self._segment_id_table = str(setid) + "_table"
+        self._segment_id_robot = str(setid) + "_robot"
+        # used to send command to all balls
+        self._segment_id_balls_set = str(setid) + "_balls"
+        # used to monitor the contact status of each individual ball
+        self._segment_id_balls = [
+            "{}_{}_ball".format(setid, index) for index in nb_balls
+        ]
+
+        # configuring the table
+        table = pam_mujoco.MujocoTable(
+            self._segment_id_table,
+            position=scene.table.position,
+            orientation=scene.table.orientation,
+        )
+
+        # configuring the robot
+        robot = pam_mujoco.MujocoRobot(
+            self._segment_id_robot,
+            position=scene.robot.position,
+            orientation=scene.robot.orientation,
+            control=pam_mujoco.MujocoRobot.JOINT_CONTROL,
+        )
+
+        # configuring the balls
+        self._balls = pam_mujoco.MujocoItems(extra_balls_segment_id)
+        for index, ball_segment_id in enumerate(self._segment_id_balls):
+            ball = pam_mujoco.MujocoItem(
+                ball_segment_id,
+                control=pam_mujoco.MujocoItem.CONSTANT_CONTROL,
+                contact_type=contact,
+            )
+            self._balls.add_ball(ball)
+
+        # configuring the mujoco simulation and
+        # getting an handle to the mujoco simulation
+        self._handle = pam_mujoco.MujocoHandle(
+            self._mujoco_id,
+            graphics=graphics,
+            accelerated_time=True,
+            burst_mode=True,
+            table=table,
+            robot1=robot,
+            combined=balls,
+        )
+
+        # balls frontends
+        self._ball_frontends = [
+            self._handle.frontends[ball_segment_id]
+            for ball_segment_id in self._segment_id_balls
+        ]
+
+    def _get_segment_ids(self, index: LIST_OR_INDEX) -> typing.Sequence[str]:
+        # convenience method returning all segment ids if index is None,
+        # and a list of segment ids otherwise (of len 1 if index is an int)
+        def _get_int_list(i: INT_OR_LIST, max_index) -> typing.Sequence[int]:
+            if isinstance(i, int):
+                r = [i]
+            else:
+                r = i
+            if any([i_ >= max_index for i_ in i]):
+                raise IndexError()
+            return i
+
+        if index is None:
+            return self._segment_id_balls
+        else:
+            return [self._segment_id_balls[i] for i in _get_int_list(index, self._size)]
+
+    def burst(self, nb_iterations: int):
+        """
+        Requests the corresponding pam_mujoco instance to burst
+        """
+        self._handle.burst(nb_iterations)
+
+    def get_contacts(
+        self, index: LIST_OR_INDEX = None
+    ) -> typing.Generator[context.ContactInformation, None, None]:
+        """
+        Returns the list contact informations between the balls and the contact
+        object (see argument "contact" of the constructor), i.e. an object with
+        attributes:
+        - contact occured : if true, at least one contact has occured
+        - position: if contact occured, the 3d position of the first contact
+        - time_stamp: if contact occured, the time stamp of the fist contact
+        - minimal_distance: if contact did not occure, the minimal distance
+                            between the two items
+        - disabled : true if contact detection has been disabled
+        Note that once a contact occured, the ball is no longer controlled by
+        o80 (i.e. the load method of this class will have no effect for the
+        corresponding ball), but by mujoco engine (until the method
+        reset_contacts of this class is called)
+        """
+        return map(self._handle.get_contact, self._get_segment_ids(index))
+
+    def reset_contacts(self, index: INT_OR_LIST = None) -> None:
+        """
+        Reset the contacts, i.e. get_contacts will return instances that
+        indicates no contact occured. Also, restore o80 control of the ball.
+        """
+        list(map(self._handle.reset_contact, self._get_segment_ids(index)))
+
+    def activate_contacts(self, index: INT_OR_LIST = None) -> None:
+        """
+        Contacts will not be ignored.
+        """
+        list(map(self._handle.activate_contact, self._get_segment_ids(index)))
+
+    def deactivate_contacts(self, index: INT_OR_LIST = None) -> None:
+        """
+        Contacts will be ignored
+        """
+        list(map(self._handle.deactivate_contact, self._get_segment_ids(index)))
+
+    def load_trajectories(self) -> None:
+        """
+        Generate trajectories using the trajectory_getter (cf constructor)
+        and load these trajectories to the mujoco backend. Note that
+        as the mujoco backend is running in bursting mode, the trajectory
+        will not start playing until the burst method of the handle is
+        called.
+        """
+        trajectories = self._trajectory_getter.get(self._size)
+        rate = self._trajectory_getter.get_sample_rate()
+        rate_ns = int(rate * 1e9)
+        duration = o80.Duration_us.nanoseconds(rate_ns)
+        item3d = o80.Item3dState()
+        # loading one trajectory per ball
+        for frontend, trajectory in zip(self._ball_frontends, trajectories):
+            # going to first trajectory point
+            item3d.set_position(trajectory[0].position)
+            item3d.set_velocity(trajectory[0].velocity)
+            ball.frontend.add_command(index_ball, item3d, o80.Mode.OVERWRITE)
+            # loading full trajectory
+            for item in trajectory[1:]:
+                item3d.set_position(item.position)
+                item3d.set_velocity(item.velocity)
+                frontend.add_command(index_ball, item3d, duration, o80.Mode.QUEUE)
+            frontend.pulse()
+
+    @staticmethod
+    def get_mujoco_id(setid: int) -> str:
+        """
+        returns the mujoco id corresponding to a
+        ball set id
+        """
+        return "extra_balls_" + str(setid)
