@@ -3,9 +3,16 @@ import pam_mujoco
 from .scene import Scene
 from .ball_behavior import TrajectoryGetter, RandomRecordedTrajectory
 
-
+# some function will accept either an int or
+# a list of ints as argument
 INT_OR_LIST = typing.Union[int, typing.Sequence[int]]
 
+# the underlying c++ controller do not accept any number of
+# extra balls per pam_mujoco processes (because each
+# has to be templated)
+# see pam_mujoco/srcpy/wrappers.cpp
+_nb_balls_accepted_values_g = (3,10,20,50,100)
+ACCEPTED_NB_OF_BALLS = typing.Literal[3,10,20,50,100]
 
 class ExtraBallsSet:
 
@@ -18,6 +25,7 @@ class ExtraBallsSet:
 
     Args:
          setid: id of the extra ball set (arbitrary, but must be different of all sets)
+         nb_balls: has to be 3, 10, 20, 50 or 100
          graphics: if the mujoco simulation should run graphics
          scene : position and orientation of the table and robot
          contact: which contact between the enviromnent and the balls should be
@@ -29,13 +37,26 @@ class ExtraBallsSet:
     def __init__(
         self,
         setid: int,
-        nb_balls: int,
+        nb_balls: ACCEPTED_NB_OF_BALLS,
         graphics: bool,
         scene: Scene,
         contact: pam_mujoco.ContactTypes = pam_mujoco.ContactTypes.racket1,
         trajectory_getter: TrajectoryGetter = RandomRecordedTrajectory(),
     ):
 
+        if nb_balls not in _nb_balls_accepted_values_g:
+            accepted_values_str = str(
+                "{}, "*len(_nb_balls_accepted_values_g)
+            ).format(*[str(av) for av in _nb_balls_accepted_values_g])
+            raise ValueError(
+                str("ExtraBalls can instantiate only with "
+                    "nb_balls having one of the values: {} "
+                    "(tried to instanciate with {}").format(
+                        accepted_values_str,
+                        nb_balls
+                    )
+            )
+        
         self._size = nb_balls
 
         # the mujoco simulation this constructor will configure, i.e it is assumed
@@ -161,6 +182,13 @@ class ExtraBallsSet:
         """
         list(map(self._handle.deactivate_contact, self._get_segment_ids(index)))
 
+    def set_trajectory_getter(self,trajectory_getter: TrajectoryGetter) -> None:
+        """
+        Overwrite the current instance of trajectory_getter
+        (that will be used by the method load_trajectories).
+        """
+        self._trajectory_getter = trajectory_getter
+        
     def load_trajectories(self) -> None:
         """
         Generate trajectories using the trajectory_getter (cf constructor)

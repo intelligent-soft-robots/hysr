@@ -1,5 +1,6 @@
 import typing
 
+from .defaults import Defaults
 
 class Pos:
     """
@@ -25,3 +26,14 @@ class Scene:
 
         self.robot = robot
         self.table = table
+
+
+    @classmethod
+    def get_default(cls : Scene.__class__) -> Scene:
+        """
+        Returns an instance of Scene using default values
+        for the position and the orientation of the robot
+        and of the table.
+        """
+        return csl(Pos(Defaults.position_robot,Defaults.orientation_robot),
+                   Pos(Defaults.position_table,Defaults.orientation_table))
