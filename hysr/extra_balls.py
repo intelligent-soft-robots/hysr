@@ -44,6 +44,8 @@ class ExtraBallsSet:
         trajectory_getter: TrajectoryGetter = RandomRecordedTrajectory(),
     ):
 
+        # not any number of balls is accepted. Checking the
+        # user entered an accepted number.
         if nb_balls not in _nb_balls_accepted_values_g:
             accepted_values_str = str(
                 "{}, "*len(_nb_balls_accepted_values_g)
