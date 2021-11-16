@@ -1,4 +1,9 @@
+import typing
+from collections.abc import Callable
 from pathlib import Path
+from .types import Pressures, Joints
+from .robot_state import RobotState,JointsState
+
 
 
 class PseudoRealRobot:
@@ -31,6 +36,26 @@ class PseudoRealRobot:
 
         self._frontend = handle.frontends[segment_id]
 
-        
+    def read(self) -> RobotState:
+        """
+        Returns the current state of the robot.
+        """
+        def _get_pressure(f:Callable)->typing.Tuple[Pressures,Pressures]:
+            pressures = f()
+            pressures_ago = tuple([pressures[dof][0] for dof in range(4)])
+            pressures_antago = tuple([pressures[dof][1] for dof in range(4)])
+            return (pressures_ago,pressures_antago)
+
+        obs = self._frontend.latest()
+        desired_pressures = _get_pressure(obs.get_desired_pressures)
+        observed_pressures = _get_pressure(obs.get_observed_pressures)
+        robot_joints = tuple(obs.get_positions())
+        robot_joint_velocities = tuple(obs.get_velocities())
+
+        return RobotState(
+            desired_pressures, observed_pressures,
+            JointsState(robot_joints, robot_joint_velocities)
+        )
+
 
 
