@@ -1,18 +1,27 @@
 import typing
-import pam_mujoco
+# imports from pam_mujoco colcon space
+import o80, context, pam_mujoco 
+# imports from hysr
 from .scene import Scene
-from .ball_behavior import TrajectoryGetter, RandomRecordedTrajectory
+from .ball_trajectories import TrajectoryGetter, RandomRecordedTrajectory
+
 
 # some function will accept either an int or
 # a list of ints as argument
-INT_OR_LIST = typing.Union[int, typing.Sequence[int]]
+LIST_OR_INDEX = typing.Union[int, typing.Sequence[int]]
 
 # the underlying c++ controller do not accept any number of
 # extra balls per pam_mujoco processes (because each
 # has to be templated)
 # see pam_mujoco/srcpy/wrappers.cpp
-_nb_balls_accepted_values_g = (3,10,20,50,100)
-ACCEPTED_NB_OF_BALLS = typing.Literal[3,10,20,50,100]
+_nb_balls_accepted_values_g = (3, 10, 20, 50, 100)
+ACCEPTED_NB_OF_BALLS = typing.Literal[3, 10, 20, 50, 100]
+
+# for 3d positions and velocities
+POS = typing.Tuple[float, float, float]
+# position, velocity, contact info
+BALL = typing.Tuple[POS, POS, context.ContactInformation]
+
 
 class ExtraBallsSet:
 
@@ -47,18 +56,17 @@ class ExtraBallsSet:
         # not any number of balls is accepted. Checking the
         # user entered an accepted number.
         if nb_balls not in _nb_balls_accepted_values_g:
-            accepted_values_str = str(
-                "{}, "*len(_nb_balls_accepted_values_g)
-            ).format(*[str(av) for av in _nb_balls_accepted_values_g])
-            raise ValueError(
-                str("ExtraBalls can instantiate only with "
-                    "nb_balls having one of the values: {} "
-                    "(tried to instanciate with {}").format(
-                        accepted_values_str,
-                        nb_balls
-                    )
+            accepted_values_str = str("{}, " * len(_nb_balls_accepted_values_g)).format(
+                *[str(av) for av in _nb_balls_accepted_values_g]
             )
-        
+            raise ValueError(
+                str(
+                    "ExtraBalls can instantiate only with "
+                    "nb_balls having one of the values: {} "
+                    "(tried to instanciate with {}"
+                ).format(accepted_values_str, nb_balls)
+            )
+
         self._size = nb_balls
 
         # the mujoco simulation this constructor will configure, i.e it is assumed
@@ -76,7 +84,7 @@ class ExtraBallsSet:
         self._segment_id_balls_set = str(setid) + "_balls"
         # used to monitor the contact status of each individual ball
         self._segment_id_balls = [
-            "{}_{}_ball".format(setid, index) for index in nb_balls
+            "{}_{}_ball".format(setid, index) for index in range(nb_balls)
         ]
 
         # configuring the table
@@ -95,14 +103,14 @@ class ExtraBallsSet:
         )
 
         # configuring the balls
-        self._balls = pam_mujoco.MujocoItems(extra_balls_segment_id)
+        balls = pam_mujoco.MujocoItems(self._segment_id_balls_set)
         for index, ball_segment_id in enumerate(self._segment_id_balls):
             ball = pam_mujoco.MujocoItem(
                 ball_segment_id,
                 control=pam_mujoco.MujocoItem.CONSTANT_CONTROL,
                 contact_type=contact,
             )
-            self._balls.add_ball(ball)
+            balls.add_ball(ball)
 
         # configuring the mujoco simulation and
         # getting an handle to the mujoco simulation
@@ -117,15 +125,12 @@ class ExtraBallsSet:
         )
 
         # balls frontends
-        self._ball_frontends = [
-            self._handle.frontends[ball_segment_id]
-            for ball_segment_id in self._segment_id_balls
-        ]
+        self._frontend = self._handle.frontends[self._segment_id_balls_set]
 
     def _get_segment_ids(self, index: LIST_OR_INDEX) -> typing.Sequence[str]:
         # convenience method returning all segment ids if index is None,
         # and a list of segment ids otherwise (of len 1 if index is an int)
-        def _get_int_list(i: INT_OR_LIST, max_index) -> typing.Sequence[int]:
+        def _get_int_list(i: LIST_OR_INDEX, max_index) -> typing.Sequence[int]:
             if isinstance(i, int):
                 r = [i]
             else:
@@ -165,32 +170,56 @@ class ExtraBallsSet:
         """
         return map(self._handle.get_contact, self._get_segment_ids(index))
 
-    def reset_contacts(self, index: INT_OR_LIST = None) -> None:
+    def reset_contacts(self, index: LIST_OR_INDEX = None) -> None:
         """
         Reset the contacts, i.e. get_contacts will return instances that
         indicates no contact occured. Also, restore o80 control of the ball.
         """
         list(map(self._handle.reset_contact, self._get_segment_ids(index)))
 
-    def activate_contacts(self, index: INT_OR_LIST = None) -> None:
+    def activate_contacts(self, index: LIST_OR_INDEX = None) -> None:
         """
         Contacts will not be ignored.
         """
         list(map(self._handle.activate_contact, self._get_segment_ids(index)))
 
-    def deactivate_contacts(self, index: INT_OR_LIST = None) -> None:
+    def deactivate_contacts(self, index: LIST_OR_INDEX = None) -> None:
         """
         Contacts will be ignored
         """
         list(map(self._handle.deactivate_contact, self._get_segment_ids(index)))
 
-    def set_trajectory_getter(self,trajectory_getter: TrajectoryGetter) -> None:
+    def set_trajectory_getter(self, trajectory_getter: TrajectoryGetter) -> None:
         """
         Overwrite the current instance of trajectory_getter
         (that will be used by the method load_trajectories).
         """
         self._trajectory_getter = trajectory_getter
-        
+
+    def get(self) -> typing.Tuple[typing.Sequence[BALL], POS]:
+        """
+        Returns a tuple(list of balls, racket cartesian position)
+        corresponding to the current state of the simulation.
+        racket cartesian position: tuple of 3 floats
+        ball: tuple of position, velocity and contact information
+              (instance of context.ContactInformation)
+        """
+        observation = self._frontend.latest()
+        robot_cartesian_position = observation.get_extended_state().robot_position
+        contacts = observation.get_extended_state().contacts
+        state = observation.get_observed_states()
+        return (
+            [
+                (
+                    contacts[index],
+                    state.get(index).get_position,
+                    state.get(index).get_velocity,
+                )
+                for index in range(self._size)
+            ],
+            robot_cartesian_position,
+        )
+
     def load_trajectories(self) -> None:
         """
         Generate trajectories using the trajectory_getter (cf constructor)
@@ -205,17 +234,17 @@ class ExtraBallsSet:
         duration = o80.Duration_us.nanoseconds(rate_ns)
         item3d = o80.Item3dState()
         # loading one trajectory per ball
-        for frontend, trajectory in zip(self._ball_frontends, trajectories):
+        for index_ball, trajectory in enumerate(trajectories):
             # going to first trajectory point
             item3d.set_position(trajectory[0].position)
             item3d.set_velocity(trajectory[0].velocity)
-            ball.frontend.add_command(index_ball, item3d, o80.Mode.OVERWRITE)
+            self._frontend.add_command(index_ball, item3d, o80.Mode.OVERWRITE)
             # loading full trajectory
             for item in trajectory[1:]:
                 item3d.set_position(item.position)
                 item3d.set_velocity(item.velocity)
-                frontend.add_command(index_ball, item3d, duration, o80.Mode.QUEUE)
-            frontend.pulse()
+                self._frontend.add_command(index_ball, item3d, duration, o80.Mode.QUEUE)
+        self._frontend.pulse()
 
     @staticmethod
     def get_mujoco_id(setid: int) -> str:
