@@ -52,7 +52,7 @@ class LineTrajectory(TrajectoryGetter):
         """
         Returns a trajectory of 3d points
         """
-        duration_ms = self._duration * 1e-3
+        duration_ms = self._duration * 1e3
         trajectory_points = context.duration_line_trajectory(
             self._start, self._end, duration_ms, sampling_rate=self._rate
         )

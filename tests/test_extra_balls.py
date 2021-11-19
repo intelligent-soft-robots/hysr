@@ -1,14 +1,35 @@
-import time
 import typing
 import pytest
+import o80
 import o80_pam
 import pam_mujoco
 from hysr import ExtraBallsSet, Scene, Defaults, ball_trajectories, ParallelBursts
 from . import pam_mujoco_utils
 
 
+def _load_line_trajectory(
+    extra_balls_sets: typing.Sequence[ExtraBallsSet],
+    start_position: typing.Tuple[float, float, float],
+    end_position: typing.Tuple[float, float, float],
+    duration: float,
+    sampling_rate: float,
+    mujoco_period: float = Defaults.mujoco_period,
+) -> int:
+
+    trajectory_getter = ball_trajectories.LineTrajectory(
+        start_position, end_position, duration, sampling_rate
+    )
+    for eb in extra_balls_sets:
+        eb.set_trajectory_getter(trajectory_getter)
+        eb.load_trajectories()
+
+    nb_bursts: int = int(duration / mujoco_period)
+
+    return nb_bursts
+
+
 @pytest.fixture
-def run_pam_mujocos(request) -> typing.Sequence[ExtraBallsSet]:
+def run_pam_mujocos(request, scope="function") -> typing.Sequence[ExtraBallsSet]:
     """
     request.param is a list of n integers corresponding to the 
     number of extra balls to be holded by each of n corresponding pam_mujoco processes.
@@ -25,9 +46,11 @@ def run_pam_mujocos(request) -> typing.Sequence[ExtraBallsSet]:
     scene = Scene.get_defaults()
     contact = pam_mujoco.ContactTypes.table
     extra_balls = [
-        ExtraBallsSet(setid, nb_balls[setid], graphics, scene, contact) for setid in setids
+        ExtraBallsSet(setid, nb_balls[setid], graphics, scene, contact)
+        for setid in setids
     ]
     yield extra_balls
+    del process
     pam_mujoco_utils.stop_pam_mujocos()
 
 
@@ -36,51 +59,45 @@ def test_line_trajectory(run_pam_mujocos):
     """
     check all extra balls can follow a line trajectory
     """
+
     start_position = (0.0, 0.0, 3.0)
     end_position = (1.0, 0.0, 3.0)
     duration = 5.0
     sampling_rate = 0.01
-    trajectory_getter = ball_trajectories.LineTrajectory(
-        start_position, end_position, duration, sampling_rate
+
+    extra_balls: typing.Sequence[ExtraBallsSet] = run_pam_mujocos
+    nb_bursts: int = _load_line_trajectory(
+        extra_balls, start_position, end_position, duration, sampling_rate
     )
 
-    extra_balls = run_pam_mujocos
-    for eb in extra_balls:
-        eb.set_trajectory_getter(trajectory_getter)
-        eb.load_trajectories()
-
-    mujoco_period = Defaults.mujoco_period
-    nb_bursts = int(duration / mujoco_period)
     first_bursts = int(nb_bursts / 2.0)
     second_bursts = nb_bursts - first_bursts
 
     def _check_mid_positions(extra_balls: ExtraBallsSet):
-        data = extra_balls.get()
-        balls = data[0]
-
         def _check_mid_position(position: typing.Tuple[float, float, float]):
             # the ball is moving along x axis, so no change expected
             # on the y and z axis
-            assert position[1] == 0.0
-            assert position[2] == 3.0
+            precision = 0.001
+            assert position[1] == pytest.approx(0.0, abs=precision)
+            assert position[2] == pytest.approx(3.0, abs=precision)
             # between start and stop
             assert position[0] > 0.0
             assert position[0] < 1.0
 
-        for ball in balls:
-            _check_mid_position(ball[0])
+        state = extra_balls.get()
+        for position in state.positions:
+            _check_mid_position(position)
 
     def _check_end_positions(extra_balls: ExtraBallsSet):
-        data = extra_balls.get()
-        balls = data[0]
-
         def _check_end_position(position: typing.Tuple[float, float, float]):
-            assert position[0] == 1.0
-            assert position[1] == 0.0
-            assert position[2] == 3.0
+            precision = 0.001
+            assert position[0] == pytest.approx(1.0, abs=precision)
+            assert position[1] == pytest.approx(0.0, abs=precision)
+            assert position[2] == pytest.approx(3.0, abs=precision)
 
-        for ball in balls:
-            _check_end_position(ball[0])
+        state = extra_balls.get()
+        for position in state.positions:
+            _check_end_position(position)
 
     with ParallelBursts(extra_balls) as pb:
         pb.burst(first_bursts)
@@ -89,3 +106,96 @@ def test_line_trajectory(run_pam_mujocos):
         pb.burst(second_bursts)
         for eb in extra_balls:
             _check_end_positions(eb)
+
+
+@pytest.mark.parametrize("run_pam_mujocos", [[3]], indirect=True)
+def test_contacts(run_pam_mujocos):
+    """
+    check contacts are reported.
+    Extra balls, except for the first one of each set, 
+    are requested to take a line trajectory that goes through the table. 
+    They should all report contact, except for the first one
+    """
+
+    # trajectory going through the table
+    start_position = (0.5, 0.5, 1.0)
+    end_position = (0.5, 0.5, -1.0)
+    duration = 1.0
+    sampling_rate = 0.01
+
+    # loading the trajectory
+    extra_balls: typing.Sequence[ExtraBallsSet] = run_pam_mujocos
+    nb_bursts: int = _load_line_trajectory(
+        extra_balls, start_position, end_position, duration, sampling_rate
+    )
+
+    # a bit of hacking: requesting only the first ball
+    # not to take the trajectory
+    for eb in extra_balls:
+        index_ball = 0
+        item3d = o80.Item3dState()
+        item3d.set_position(start_position)
+        item3d.set_velocity((0.0, 0.0, 0.0))
+        eb._frontend.add_command(index_ball, item3d, o80.Mode.OVERWRITE)
+        eb._frontend.pulse()
+
+    # running the trajectory
+    with ParallelBursts(extra_balls) as pb:
+        pb.burst(nb_bursts)
+
+    # checking all report contacts
+    for eb in extra_balls:
+        contacts: typing.Sequence[context.ContactInformation] = eb.get_contacts()
+        assert not contacts[0].contact_occured
+        assert all([c.contact_occured for c in contacts[1:]])
+
+    # trajectory going to another point above the table
+    start_position = (0.5, 0.5, 1.0)
+    end_position = (0.0, 0.0, 1.0)
+    duration = 1.0
+    sampling_rate = 0.01
+
+    # loading the trajectory
+    nb_bursts: int = _load_line_trajectory(
+        extra_balls, start_position, end_position, duration, sampling_rate
+    )
+
+    # running the trajectory
+    with ParallelBursts(extra_balls) as pb:
+        pb.burst(nb_bursts)
+
+    # control should have been lost on all balls except the
+    # first one. So, only the first one should be at the end position
+    for eb in extra_balls:
+        state: ExtraBallsState = eb.get()
+        positions = state.positions
+        precision = 0.001
+        for dim in range(3):
+            assert positions[0][dim] == pytest.approx(end_position[dim], abs=precision)
+        for position in positions[1:]:
+            for dim in range(3):
+                assert not position[dim] == pytest.approx(
+                    end_position[dim], abs=precision
+                )
+
+    # redoing, after deactivating the contacts
+    for eb in extra_balls:
+        eb.deactivate_contacts()
+
+    # loading the trajectory
+    nb_bursts: int = _load_line_trajectory(
+        extra_balls, start_position, end_position, duration, sampling_rate
+    )
+
+    # running the trajectory
+    with ParallelBursts(extra_balls) as pb:
+        pb.burst(nb_bursts)
+
+    # now, all balls should be at the end position
+    for eb in extra_balls:
+        state: ExtraBallsState = eb.get()
+        positions = state.positions
+        precision = 0.001
+        for position in positions:
+            for dim in range(3):
+                assert position[dim] == pytest.approx(end_position[dim], abs=precision)

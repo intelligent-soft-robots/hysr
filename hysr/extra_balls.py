@@ -1,26 +1,42 @@
 import typing
+from dataclasses import dataclass
+
 # imports from pam_mujoco colcon space
-import o80, context, pam_mujoco 
+import o80, context, pam_mujoco
+
 # imports from hysr
+from .types import ListOrIndex, AcceptedNbOfBalls, Point3D, ExtraBall
 from .scene import Scene
 from .ball_trajectories import TrajectoryGetter, RandomRecordedTrajectory
 
-
-# some function will accept either an int or
-# a list of ints as argument
-LIST_OR_INDEX = typing.Union[int, typing.Sequence[int]]
 
 # the underlying c++ controller do not accept any number of
 # extra balls per pam_mujoco processes (because each
 # has to be templated)
 # see pam_mujoco/srcpy/wrappers.cpp
 _nb_balls_accepted_values_g = (3, 10, 20, 50, 100)
-ACCEPTED_NB_OF_BALLS = typing.Literal[3, 10, 20, 50, 100]
 
-# for 3d positions and velocities
-POS = typing.Tuple[float, float, float]
-# position, velocity, contact info
-BALL = typing.Tuple[POS, POS, context.ContactInformation]
+
+@dataclass
+class ExtraBallsState:
+    """
+    Snapshot state of an ExtraBallsState.
+    Attributes:
+      positions (list of 3d positions): positions of the balls
+      velocities (list of 3d positions): velocities of the balls
+      contacts (list of bool): if True, the corresponding ball had a 
+        contact with the racket since the last call to reset
+      racket_cartesian (3d position): position of the racket
+      iteration (int): iteration of the mujoco simulation
+      time_stamp (int): time stamp of the mujoco simulation (nanoseconds)
+    """
+
+    positions: typing.Sequence[Point3D]
+    velocities: typing.Sequence[Point3D]
+    contacts: typing.Sequence[bool]
+    racket_cartesian: Point3D
+    iteration: int
+    time_stamp: int
 
 
 class ExtraBallsSet:
@@ -46,7 +62,7 @@ class ExtraBallsSet:
     def __init__(
         self,
         setid: int,
-        nb_balls: ACCEPTED_NB_OF_BALLS,
+        nb_balls: AcceptedNbOfBalls,
         graphics: bool,
         scene: Scene,
         contact: pam_mujoco.ContactTypes = pam_mujoco.ContactTypes.racket1,
@@ -127,10 +143,10 @@ class ExtraBallsSet:
         # balls frontends
         self._frontend = self._handle.frontends[self._segment_id_balls_set]
 
-    def _get_segment_ids(self, index: LIST_OR_INDEX) -> typing.Sequence[str]:
+    def _get_segment_ids(self, index: ListOrIndex) -> typing.Sequence[str]:
         # convenience method returning all segment ids if index is None,
         # and a list of segment ids otherwise (of len 1 if index is an int)
-        def _get_int_list(i: LIST_OR_INDEX, max_index) -> typing.Sequence[int]:
+        def _get_int_list(i: ListOrIndex, max_index) -> typing.Sequence[int]:
             if isinstance(i, int):
                 r = [i]
             else:
@@ -151,8 +167,8 @@ class ExtraBallsSet:
         self._handle.burst(nb_iterations)
 
     def get_contacts(
-        self, index: LIST_OR_INDEX = None
-    ) -> typing.Generator[context.ContactInformation, None, None]:
+        self, index: ListOrIndex = None
+    ) -> typing.Sequence[context.ContactInformation]:
         """
         Returns the list contact informations between the balls and the contact
         object (see argument "contact" of the constructor), i.e. an object with
@@ -168,22 +184,22 @@ class ExtraBallsSet:
         corresponding ball), but by mujoco engine (until the method
         reset_contacts of this class is called)
         """
-        return map(self._handle.get_contact, self._get_segment_ids(index))
+        return list(map(self._handle.get_contact, self._get_segment_ids(index)))
 
-    def reset_contacts(self, index: LIST_OR_INDEX = None) -> None:
+    def reset_contacts(self, index: ListOrIndex = None) -> None:
         """
         Reset the contacts, i.e. get_contacts will return instances that
         indicates no contact occured. Also, restore o80 control of the ball.
         """
         list(map(self._handle.reset_contact, self._get_segment_ids(index)))
 
-    def activate_contacts(self, index: LIST_OR_INDEX = None) -> None:
+    def activate_contacts(self, index: ListOrIndex = None) -> None:
         """
         Contacts will not be ignored.
         """
         list(map(self._handle.activate_contact, self._get_segment_ids(index)))
 
-    def deactivate_contacts(self, index: LIST_OR_INDEX = None) -> None:
+    def deactivate_contacts(self, index: ListOrIndex = None) -> None:
         """
         Contacts will be ignored
         """
@@ -196,28 +212,25 @@ class ExtraBallsSet:
         """
         self._trajectory_getter = trajectory_getter
 
-    def get(self) -> typing.Tuple[typing.Sequence[BALL], POS]:
+    def get(self) -> ExtraBallsState:
         """
-        Returns a tuple(list of balls, racket cartesian position)
-        corresponding to the current state of the simulation.
-        racket cartesian position: tuple of 3 floats
-        ball: tuple of position, velocity and contact information
-              (instance of context.ContactInformation)
+        Returns the current state of this extra balls set
         """
         observation = self._frontend.latest()
-        robot_cartesian_position = observation.get_extended_state().robot_position
+        racket_cartesian = observation.get_extended_state().robot_position
         contacts = observation.get_extended_state().contacts
+        iteration = observation.get_iteration()
+        time_stamp = observation.get_time_stamp()
         state = observation.get_observed_states()
-        return (
-            [
-                (
-                    contacts[index],
-                    state.get(index).get_position,
-                    state.get(index).get_velocity,
-                )
-                for index in range(self._size)
-            ],
-            robot_cartesian_position,
+        balls = [state.get(index) for index in range(self._size)]
+        positions = []
+        velocities = []
+        [
+            (positions.append(b.get_position()), velocities.append(b.get_velocity()))
+            for b in balls
+        ]
+        return ExtraBallsState(
+            positions, velocities, contacts, racket_cartesian, iteration, time_stamp
         )
 
     def load_trajectories(self) -> None:
