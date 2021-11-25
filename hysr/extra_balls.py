@@ -153,7 +153,7 @@ class ExtraBallsSet:
                 r = i
             if any([i_ >= max_index for i_ in i]):
                 raise IndexError()
-            return i
+            return r
 
         if index is None:
             return self._segment_id_balls
@@ -225,10 +225,9 @@ class ExtraBallsSet:
         balls = [state.get(index) for index in range(self._size)]
         positions = []
         velocities = []
-        [
-            (positions.append(b.get_position()), velocities.append(b.get_velocity()))
-            for b in balls
-        ]
+        for b in balls:
+            positions.append(b.get_position())
+            velocities.append(b.get_velocity())
         return ExtraBallsState(
             positions, velocities, contacts, racket_cartesian, iteration, time_stamp
         )

@@ -3,7 +3,7 @@ import typing
 from .defaults import Defaults
 
 
-class Pos:
+class Pose:
     """
     Encapsulate a 3d position and an orientation in a format suitable
     to Mujoco xml model file, i.e. 3d float for position and
@@ -23,7 +23,7 @@ class Scene:
     and of the robot.
     """
 
-    def __init__(self, robot: Pos, table: Pos):
+    def __init__(self, robot: Pose, table: Pose):
 
         self.robot = robot
         self.table = table
@@ -36,6 +36,6 @@ class Scene:
         and of the table.
         """
         return cls(
-            Pos(Defaults.position_robot, Defaults.orientation_robot),
-            Pos(Defaults.position_table, Defaults.orientation_table),
+            Pose(Defaults.position_robot, Defaults.orientation_robot),
+            Pose(Defaults.position_table, Defaults.orientation_table),
         )

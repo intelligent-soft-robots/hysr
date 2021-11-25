@@ -40,13 +40,13 @@ class LineTrajectory(TrajectoryGetter):
         self,
         start_position: Position,
         end_position: Position,
-        duration: float,
-        sampling_rate: float,
+        duration_seconds: float,
+        sampling_rate_seconds: float,
     ):
         self._start = start_position
         self._end = end_position
-        self._duration = duration
-        self._rate = sampling_rate
+        self._duration = duration_seconds
+        self._rate = sampling_rate_seconds
 
     def get_one(self) -> typing.Tuple[Position]:
         """
@@ -83,11 +83,11 @@ class IndexedRecordedTrajectory(TrajectoryGetter):
 
     def __init__(self, index: int):
         global _trajectory_reader_g
-        if index >= _trajectory_reader.size():
+        if index >= _trajectory_reader_g.size():
             raise IndexError(
                 str(
                     "Trajectory index {} not supported " "(index supported up to {})"
-                ).format(index, _trajectory_reader.size())
+                ).format(index, _trajectory_reader_g.size())
             )
         self._index = index
 
@@ -121,9 +121,6 @@ class RandomRecordedTrajectory(TrajectoryGetter):
     randomly selected
     """
 
-    def __init__(self):
-        pass
-
     def get_one(self) -> typing.Sequence[Position]:
         """
         Returns a trajectory of 3d points
@@ -139,7 +136,7 @@ class RandomRecordedTrajectory(TrajectoryGetter):
         trajectories), a ValueError is thrown.
         """
         global _trajectory_reader_g
-        if nb_trajectories >= _trajectory_reader.size():
+        if nb_trajectories >= _trajectory_reader_.size():
             raise ValueError(
                 str(
                     "Requested number of trajectories {} not supported ",
