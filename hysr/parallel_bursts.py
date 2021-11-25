@@ -1,4 +1,11 @@
 import time, threading, typing, pam_mujoco
+from .extra_balls import ExtraBallsSet
+
+
+# both MujocoHandle and ExtraBallsSet provide a burst method
+# (the one of ExtraBallsSet calls the burst method of its private
+#  (mujoco) handle attribute)
+BURSTER = typing.Union[pam_mujoco.MujocoHandle, ExtraBallsSet]
 
 
 class ParallelBursts:
@@ -10,13 +17,11 @@ class ParallelBursts:
     in bursting mode.
 
     Args:
-        handles: list of handles
+        handles: list of handles (or of instances of other classes providing a burst method)
         wait: wait duration (in second) of the thread loops
     """
 
-    def __init__(
-        self, handles: typing.Sequence[pam_mujoco.MujocoHandle], wait: float = 0.0001
-    ):
+    def __init__(self, handles: typing.Sequence[BURSTER], wait: float = 0.0001):
 
         self._handles = handles
         self._size = len(handles)

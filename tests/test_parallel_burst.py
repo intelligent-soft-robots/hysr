@@ -1,11 +1,10 @@
-import time
 import typing
 import pytest
 import o80_pam
 import pam_mujoco
 from hysr import ParallelBursts
 from . import pam_mujoco_utils
-        
+
 
 def _configure_pam_mujocos(
     mujoco_ids: typing.Sequence[str],
@@ -34,7 +33,7 @@ def _configure_pam_mujocos(
 
 
 @pytest.fixture
-def run_pam_mujocos(request) -> typing.Generator[pam_mujoco.MujocoHandle,None,None]:
+def run_pam_mujocos(request) -> typing.Generator[pam_mujoco.MujocoHandle, None, None]:
     """
     setup : starts pam_mujoco processes corresponding to
     the mujoco_ids passed as arguments, configure them
@@ -46,10 +45,10 @@ def run_pam_mujocos(request) -> typing.Generator[pam_mujoco.MujocoHandle,None,No
     process = pam_mujoco_utils.start_pam_mujocos(mujoco_ids)
     handles = _configure_pam_mujocos(mujoco_ids)
     yield handles
-    pam_mujoco_utils.stop_pam_mujocos(mujoco_ids)
+    pam_mujoco_utils.stop_pam_mujocos()
 
 
-@pytest.mark.parametrize("run_pam_mujocos", [['m1','m2','m3']], indirect=True)
+@pytest.mark.parametrize("run_pam_mujocos", [["m1", "m2", "m3"]], indirect=True)
 def test_parallel_bursts(run_pam_mujocos):
     """
     check the all backends bursts in parallel when 
@@ -75,7 +74,7 @@ def test_parallel_bursts(run_pam_mujocos):
         _assert_steps(handles, 32)
 
 
-@pytest.mark.parametrize("run_pam_mujocos", [['m4']], indirect=True)
+@pytest.mark.parametrize("run_pam_mujocos", [["m4"]], indirect=True)
 def test_single_parallel_bursts(run_pam_mujocos):
     """
     check ParallelBursts also handles a single
