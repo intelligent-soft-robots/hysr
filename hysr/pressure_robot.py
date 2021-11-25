@@ -59,14 +59,6 @@ class PressureRobot:
         state.time_stamp = obs.get_time_stamp()
         return state
 
-    def _error_message(self, expected_function: str) -> str:
-        f = getattr(self, expected_function)
-        signature = repr(f.__annotations__)
-        return str(
-            "subclasses of PressureRobot are expected "
-            "to implement the method {} ({}).".format(f, signature)
-        )
-
     def set_desired_pressures(self, robot_pressures: RobotPressures) -> None:
         """ (o80) adds the desired pressures, but does not send them to 
         the robot.
