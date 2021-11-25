@@ -5,3 +5,9 @@ from .extra_balls import ExtraBallsSet
 from .scene import Scene
 from . import ball_trajectories
 from .defaults import Defaults
+from .pressure_robot import (
+    PressureRobotState,
+    RealRobot,
+    SimPressureRobot,
+    SimAcceleratedPressureRobot,
+)
