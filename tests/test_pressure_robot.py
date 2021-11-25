@@ -66,7 +66,7 @@ def _test_sim_pressure_robot(accelerated):
     )
     robot.set_desired_pressures(set_pressures)
     if accelerated:
-        robot.burst(2)
+        robot.burst(1)
     else:
         robot.pulse()
     time.sleep(0.1)
