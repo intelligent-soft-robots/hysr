@@ -7,7 +7,7 @@ class Pose:
     """
     Encapsulate a 3d position and an orientation in a format suitable
     to Mujoco xml model file, i.e. 3d float for position and
-    string for orientation (e.g.
+    string for orientation (e.g. '-1 0 0 0 -1 0')
     """
 
     def __init__(self, position: typing.Sequence[float], orientation: str):

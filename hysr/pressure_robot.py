@@ -24,8 +24,8 @@ class PressureRobotState:
       time_stamp of the backend, in nanoseconds
     """
 
-    positions: RobotPressures = None
-    velocities: RobotPressures = None
+    positions: JointStates = None
+    velocities: JointStates = None
     desired_pressures: typing.Tuple[
         JointPressures, JointPressures, JointPressures, JointPressures
     ] = None

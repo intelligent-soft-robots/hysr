@@ -16,6 +16,9 @@ ExtraBall = typing.Tuple[Point3D, Point3D, bool]
   (True if the ball ever had a contact with the racket, since
   reset was called) """
 
+JointStates = typing.Tuple[float, float, float, float]
+""" For 4d (one per joint) angular positions or angular velocities of joints"""
+
 JointPressures = typing.Tuple[int, int]
 """ Pressures of a joint (agonist, antagonist)"""
 

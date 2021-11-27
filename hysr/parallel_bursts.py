@@ -16,9 +16,12 @@ class ParallelBursts:
     For this to work, the handle must correspond to backend that are running
     in bursting mode.
 
-    Args:
-        handles: list of handles (or of instances of other classes providing a burst method)
-        wait: wait duration (in second) of the thread loops
+    Arguments
+    ---------
+    handles: 
+      list of handles (or of instances of other classes providing a burst method)
+    wait: 
+      wait duration (in second) of the thread loops
     """
 
     def __init__(self, handles: typing.Sequence[BURSTER], wait: float = 0.0001):

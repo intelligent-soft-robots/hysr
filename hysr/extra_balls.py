@@ -16,19 +16,31 @@ from .ball_trajectories import TrajectoryGetter, RandomRecordedTrajectory
 # see pam_mujoco/srcpy/wrappers.cpp
 _nb_balls_accepted_values_g = (3, 10, 20, 50, 100)
 
+# each extra balls set is related to a pam_mujoco instance
+# by sharing the same mujoco_id, e.g. for set 1, "hysr_extra_balls_1"
+_mujoco_id_prefix_g: str = "hysr_extra_balls_"
+
 
 @dataclass
 class ExtraBallsState:
     """
     Snapshot state of an ExtraBallsState.
-    Attributes:
-      positions (list of 3d positions): positions of the balls
-      velocities (list of 3d positions): velocities of the balls
-      contacts (list of bool): if True, the corresponding ball had a 
-        contact with the racket since the last call to reset
-      racket_cartesian (3d position): position of the racket
-      iteration (int): iteration of the mujoco simulation
-      time_stamp (int): time stamp of the mujoco simulation (nanoseconds)
+
+    Attributes
+    ----------
+    positions: list of 3d positions
+      positions of the balls
+    velocities: list of 3d positions 
+      velocities of the balls
+    contacts: bool
+       if True, the corresponding ball had a 
+       contact with the racket since the last call to reset
+    racket_cartesian: 3d position
+        position of the racket
+    iteration: int
+      iteration of the mujoco simulation
+    time_stamp: int
+      time stamp of the mujoco simulation (nanoseconds)
     """
 
     positions: typing.Sequence[Point3D]
@@ -48,15 +60,23 @@ class ExtraBallsSet:
     The mujoco simulation as configured by this class will run in accelerated time and in
     bursting mode.
 
-    Args:
-         setid: id of the extra ball set (arbitrary, but must be different of all sets)
-         nb_balls: has to be 3, 10, 20, 50 or 100
-         graphics: if the mujoco simulation should run graphics
-         scene : position and orientation of the table and robot
-         contact: which contact between the enviromnent and the balls should be
-                  monitored (default: the racket of the robot)
-         trajectory_getter: instance of ball_behavior.TrajectoryGetter. Will be used
-                            to set the trajectories the balls will be required to follow
+    Arguments
+    ---------
+    setid: 
+      id of the extra ball set (arbitrary, but must be different of all sets).
+    nb_balls: 
+      has to be 3, 10, 20, 50 or 100.
+    graphics: 
+      if the mujoco simulation should run graphics.
+    scene: 
+      position and orientation of the table and robot.
+    contact:
+      which contact between the enviromnent and the balls should be.
+    monitored:
+      optional, default: the racket of the robot.
+    trajectory_getter: 
+      will be used to set the trajectories the balls
+      will be required to follow
     """
 
     def __init__(
@@ -195,7 +215,8 @@ class ExtraBallsSet:
 
     def activate_contacts(self, index: ListOrIndex = None) -> None:
         """
-        Contacts will not be ignored.
+        Contacts will no longer be ignored (if 'deactivate_contacts'
+        has been previously called)
         """
         list(map(self._handle.activate_contact, self._get_segment_ids(index)))
 
@@ -258,10 +279,19 @@ class ExtraBallsSet:
                 self._frontend.add_command(index_ball, item3d, duration, o80.Mode.QUEUE)
         self._frontend.pulse()
 
+    def set_robot(self, position: JointStates, velocity: JointStates) -> None:
+        """
+        Set a command for the o80 backend of the robot. Will not be shared with
+        the backend until the burst method is called.
+        """
+        self._handle.frontends[_robot_segment_id].add_command(
+            positions, velocities, o80.Mode.OVERWRITE
+        )
+
     @staticmethod
     def get_mujoco_id(setid: int) -> str:
         """
         returns the mujoco id corresponding to a
         ball set id
         """
-        return "extra_balls_" + str(setid)
+        return _mujoco_id_prefix_g + str(setid)
