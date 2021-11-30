@@ -1,5 +1,5 @@
 import typing
-import o80
+import o80, pam_mujoco, context
 from .scene import Scene
 from .ball_trajectories import TrajectoryGetter, RandomRecordedTrajectory
 from . import types
@@ -15,29 +15,6 @@ _robot_segment_id: str = "hysr_main_sim_robot"
 _ball_segment_id: str = "hysr_main_sim_ball"
 _hit_point_segment_id: str = "hysr_main_hit_point"
 _goal_segment_id: str = "hysr_main_goal"
-
-
-@dataclass
-class BallState:
-    """
-    Snapshot state of a simulated ball.
-
-    Attributes
-    ----------
-    position: 3d float
-      position of the ball
-    velocity: 3d float
-      velocity of the ball
-    iteration: int
-      iteration of the mujoco simulation
-    time_stamp: int
-      time stamp of the mujoco simulation (nanoseconds)
-    """
-
-    position: types.Point3D = None
-    velocity: types.Point3D = None
-    iteration: int = None
-    time_stamp: int = None
 
 
 class MainSim:
@@ -89,10 +66,10 @@ class MainSim:
         )
 
         self._handle = pam_mujoco.MujocoHandle(
-            self.get_mujoco_i(),
+            self.get_mujoco_id(),
             graphics=graphics,
-            accelerated_time=accelerated_time,
-            burst_mode=burst_mode,
+            accelerated_time=True,
+            burst_mode=True,
             table=table,
             robot1=robot,
             balls=(ball,),
@@ -100,6 +77,8 @@ class MainSim:
             goals=(goal,),
         )
 
+        self._frontend_robot = self._handle.frontends[_robot_segment_id]
+        self._frontend_ball = self._handle.frontends[_ball_segment_id]
         self._trajectory_getter = trajectory_getter
 
     def set_trajectory_getter(self, trajectory_getter: TrajectoryGetter) -> None:
@@ -123,22 +102,30 @@ class MainSim:
         will not start playing until the burst method of the handle is
         called.
         """
-        trajectory = self._trajectory_getter.get()
+        trajectory = self._trajectory_getter.get_one()
         rate = self._trajectory_getter.get_sample_rate()
         rate_ns = int(rate * 1e9)
         duration = o80.Duration_us.nanoseconds(rate_ns)
-        item3d = o80.Item3dState()
+
         # going to first trajectory point
-        item3d.set_position(trajectory[0].position)
-        item3d.set_velocity(trajectory[0].velocity)
-        self._frontend.add_command(index_ball, item3d, o80.Mode.OVERWRITE)
+        self._frontend_ball.add_command(trajectory[0].position,
+                                        trajectory[0].velocity,
+                                        o80.Mode.OVERWRITE)
         # loading full trajectory
         for item in trajectory[1:]:
-            item3d.set_position(item.position)
-            item3d.set_velocity(item.velocity)
-            self._frontend.add_command(index_ball, item3d, duration, o80.Mode.QUEUE)
-        self._handle.frontends[_ball_segment_id].pulse()
+            self._frontend_ball.add_command(item.position,
+                                            item.velocity,
+                                            duration, o80.Mode.QUEUE)
+        self._frontend_ball.pulse()
 
+    def reset(self) -> None:
+        """
+        Do a full simulation reset, i.e. restore the state of the 
+        first simulation step, where all items are set according
+        to the mujoco xml configuration file.
+        """
+        self._handle.reset()
+        
     def get_contact(self) -> context.ContactInformation:
         """
         Return the contact information between the ball and the racket.
@@ -157,7 +144,7 @@ class MainSim:
 
         return self._handle.get_contact(_ball_segment_id)
 
-    def activate_contact(self, index: ListOrIndex = None) -> None:
+    def activate_contact(self, index: types.ListOrIndex = None) -> None:
         """
         Contact will no longer be ignored (if 'deactivate_contact'
         has been previously called)
@@ -179,32 +166,36 @@ class MainSim:
         """
         self._handle.reset_contact()
 
-    def get_ball(self) -> types.BallState:
+    def get(self) -> types.MainSimState:
         """
-        Returns the current state of the ball.
-        """
-        obs = self._handle.frontends[_ball_segment_id].latest()
-        ball = obs.get_observed_states()
+        Returns the current state of the simulation. """
+        # ball observation
+        ball_obs = self._frontend_ball.latest()
+        ball = ball_obs.get_observed_states()
         ball_position = [None] * 3
         ball_velocity = [None] * 3
         for dim in range(3):
             ball_position[dim] = ball.get(2 * dim).get()
             ball_velocity[dim] = ball.get(2 * dim + 1).get()
-        ball_state = types.BallState()
-        ball_state.position = ball_position
-        ball_state.velocity = ball_velocity
-        ball_state.iteration = obs.get_iteration()
-        ball_state.time_stamp = obs.get_time_stamp()
-        return ball_state
+        # robot observation
+        robot_obs = self._frontend_robot.latest()
+        cartesian = (robot_obs.get_cartesian_position(),
+                     robot_obs.get_cartesian_orientation())
+        # returning
+        return types.MainSimState(ball_position,ball_velocity,
+                                  robot_obs.get_positions(),robot_obs.get_velocities(),
+                                  cartesian,
+                                  robot_obs.get_iteration(), robot_obs.get_time_stamp())
 
-    def set_robot(self, position: JointStates, velocity: JointStates) -> None:
+    def set_robot(self, positions: types.JointStates, velocities: types.JointStates) -> None:
         """
-        Set a command for the o80 backend of the robot. Will not be shared with
-        the backend until the burst method is called.
+        Set a command for the o80 backend of the robot. 
         """
-        self._handle.frontends[_robot_segment_id].add_command(
+        self._frontend_robot.add_command(
             positions, velocities, o80.Mode.OVERWRITE
         )
+        self._frontend_robot.pulse()
+        
 
     @staticmethod
     def get_mujoco_id() -> str:

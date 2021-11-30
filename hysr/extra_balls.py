@@ -1,14 +1,12 @@
 import typing
-from dataclasses import dataclass
 
 # imports from pam_mujoco colcon space
 import o80, context, pam_mujoco
 
 # imports from hysr
-from .types import ListOrIndex, AcceptedNbOfBalls, Point3D, ExtraBall
+from .types import ListOrIndex, AcceptedNbOfBalls, Point3D, ExtraBall, ExtraBallsState, JointStates
 from .scene import Scene
 from .ball_trajectories import TrajectoryGetter, RandomRecordedTrajectory
-
 
 # the underlying c++ controller do not accept any number of
 # extra balls per pam_mujoco processes (because each
@@ -19,36 +17,6 @@ _nb_balls_accepted_values_g = (3, 10, 20, 50, 100)
 # each extra balls set is related to a pam_mujoco instance
 # by sharing the same mujoco_id, e.g. for set 1, "hysr_extra_balls_1"
 _mujoco_id_prefix_g: str = "hysr_extra_balls_"
-
-
-@dataclass
-class ExtraBallsState:
-    """
-    Snapshot state of an ExtraBallsState.
-
-    Attributes
-    ----------
-    positions: list of 3d positions
-      positions of the balls
-    velocities: list of 3d positions 
-      velocities of the balls
-    contacts: bool
-       if True, the corresponding ball had a 
-       contact with the racket since the last call to reset
-    racket_cartesian: 3d position
-        position of the racket
-    iteration: int
-      iteration of the mujoco simulation
-    time_stamp: int
-      time stamp of the mujoco simulation (nanoseconds)
-    """
-
-    positions: typing.Sequence[Point3D]
-    velocities: typing.Sequence[Point3D]
-    contacts: typing.Sequence[bool]
-    racket_cartesian: Point3D
-    iteration: int
-    time_stamp: int
 
 
 class ExtraBallsSet:
@@ -161,8 +129,12 @@ class ExtraBallsSet:
         )
 
         # balls frontends
-        self._frontend = self._handle.frontends[self._segment_id_balls_set]
+        self._balls_frontend = self._handle.frontends[self._segment_id_balls_set]
 
+        # robot frontend
+        self._robot_frontend = self._handle.frontends[self._segment_id_robot]
+
+        
     def _get_segment_ids(self, index: ListOrIndex) -> typing.Sequence[str]:
         # convenience method returning all segment ids if index is None,
         # and a list of segment ids otherwise (of len 1 if index is an int)
@@ -237,22 +209,35 @@ class ExtraBallsSet:
         """
         Returns the current state of this extra balls set
         """
-        observation = self._frontend.latest()
-        racket_cartesian = observation.get_extended_state().robot_position
-        contacts = observation.get_extended_state().contacts
-        iteration = observation.get_iteration()
-        time_stamp = observation.get_time_stamp()
-        state = observation.get_observed_states()
+        # balls observation
+        balls_observation = self._balls_frontend.latest()
+        racket_cartesian = balls_observation.get_extended_state().robot_position
+        contacts = balls_observation.get_extended_state().contacts
+        iteration = balls_observation.get_iteration()
+        time_stamp = balls_observation.get_time_stamp()
+        state = balls_observation.get_observed_states()
         balls = [state.get(index) for index in range(self._size)]
-        positions = []
-        velocities = []
+        ball_positions = []
+        ball_velocities = []
         for b in balls:
-            positions.append(b.get_position())
-            velocities.append(b.get_velocity())
+            ball_positions.append(b.get_position())
+            ball_velocities.append(b.get_velocity())
+        # robot observation
+        robot_observation = self._robot_frontend.latest()
         return ExtraBallsState(
-            positions, velocities, contacts, racket_cartesian, iteration, time_stamp
+            ball_positions, ball_velocities, contacts,
+            robot_observation.get_positions(), robot_observation.get_velocities(),
+            racket_cartesian, iteration, time_stamp
         )
 
+    def reset(self)->None:
+        """
+        Do a full simulation reset, i.e. restore the state of the 
+        first simulation step, where all items are set according
+        to the mujoco xml configuration file.
+        """
+        self._handle.reset()
+    
     def load_trajectories(self) -> None:
         """
         Generate trajectories using the trajectory_getter (cf constructor)
@@ -271,22 +256,23 @@ class ExtraBallsSet:
             # going to first trajectory point
             item3d.set_position(trajectory[0].position)
             item3d.set_velocity(trajectory[0].velocity)
-            self._frontend.add_command(index_ball, item3d, o80.Mode.OVERWRITE)
+            self._balls_frontend.add_command(index_ball, item3d, o80.Mode.OVERWRITE)
             # loading full trajectory
             for item in trajectory[1:]:
                 item3d.set_position(item.position)
                 item3d.set_velocity(item.velocity)
-                self._frontend.add_command(index_ball, item3d, duration, o80.Mode.QUEUE)
-        self._frontend.pulse()
+                self._balls_frontend.add_command(index_ball, item3d, duration, o80.Mode.QUEUE)
+        self._balls_frontend.pulse()
 
-    def set_robot(self, position: JointStates, velocity: JointStates) -> None:
+    def set_robot(self, positions: JointStates, velocities: JointStates) -> None:
         """
         Set a command for the o80 backend of the robot. Will not be shared with
         the backend until the burst method is called.
         """
-        self._handle.frontends[_robot_segment_id].add_command(
+        self._robot_frontend.add_command(
             positions, velocities, o80.Mode.OVERWRITE
         )
+        self._robot_frontend.pulse()
 
     @staticmethod
     def get_mujoco_id(setid: int) -> str:

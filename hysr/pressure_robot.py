@@ -1,7 +1,7 @@
 import pathlib, typing
 from dataclasses import dataclass
 import o80, o80_pam, pam_mujoco
-from .types import RobotPressures, JointPressures
+from .types import RobotPressures, JointPressures, JointStates
 
 
 @dataclass
