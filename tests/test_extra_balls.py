@@ -86,7 +86,7 @@ def test_line_trajectory(run_pam_mujocos):
             assert position[0] < 1.0
 
         state = extra_balls.get()
-        for position in state.positions:
+        for position in state.ball_positions:
             _check_mid_position(position)
 
     def _check_end_positions(extra_balls: ExtraBallsSet):
@@ -97,7 +97,7 @@ def test_line_trajectory(run_pam_mujocos):
             assert position[2] == pytest.approx(3.0, abs=precision)
 
         state = extra_balls.get()
-        for position in state.positions:
+        for position in state.ball_positions:
             _check_end_position(position)
 
     with ParallelBursts(extra_balls) as pb:
@@ -137,8 +137,8 @@ def test_contacts(run_pam_mujocos):
         item3d = o80.Item3dState()
         item3d.set_position(start_position)
         item3d.set_velocity((0.0, 0.0, 0.0))
-        eb._frontend.add_command(index_ball, item3d, o80.Mode.OVERWRITE)
-        eb._frontend.pulse()
+        eb._balls_frontend.add_command(index_ball, item3d, o80.Mode.OVERWRITE)
+        eb._balls_frontend.pulse()
 
     # running the trajectory
     with ParallelBursts(extra_balls) as pb:
@@ -169,7 +169,7 @@ def test_contacts(run_pam_mujocos):
     # first one. So, only the first one should be at the end position
     for eb in extra_balls:
         state: ExtraBallsState = eb.get()
-        positions = state.positions
+        positions = state.ball_positions
         precision = 0.001
         for dim in range(3):
             assert positions[0][dim] == pytest.approx(end_position[dim], abs=precision)
@@ -195,7 +195,7 @@ def test_contacts(run_pam_mujocos):
     # now, all balls should be at the end position
     for eb in extra_balls:
         state: ExtraBallsState = eb.get()
-        positions = state.positions
+        positions = state.ball_positions
         precision = 0.001
         for position in positions:
             for dim in range(3):
@@ -244,21 +244,6 @@ def test_reset(run_pam_mujocos):
     list_of_list_attrs = ("ball_positions", "ball_velocities")
     list_attrs = ("joint_positions", "joint_velocities", "racket_cartesian")
 
-    def _list_assert_same(
-        a: typing.List[float], b: typing.List[float], precision: float
-    ) -> None:
-        for va, vb in zip(a, b):
-            assert va == pytest.approx(vb, precision)
-
-    def _list_assert_diff(
-        a: typing.List[float], b: typing.List[float], precision: float
-    ) -> None:
-        for va, vb in zip(a, b):
-            if va != pytest.approx(vb, precision):
-                assert True
-                return
-        assert False
-
     def _assert_compare(
         a: hysr.types.ExtraBallsState,
         b: hysr.types.ExtraBallsState,
@@ -267,15 +252,17 @@ def test_reset(run_pam_mujocos):
     ) -> None:
         for attr in list_of_list_attrs:
             for list_a, list_b in zip(getattr(a, attr), getattr(b, attr)):
+                print(attr,list_a,list_b)
                 if same:
-                    _list_assert_same(list_a, list_b, precision)
+                    assert list_a == pytest.approx(list_b,abs=precision)
                 else:
-                    _list_assert_diff(list_a, list_b, precision)
+                    assert not list_a == pytest.approx(list_b,abs=precision)
         for attr in list_attrs:
+            print(attr,getattr(a, attr),getattr(b, attr))
             if same:
-                _list_assert_same(getattr(a, attr), getattr(b, attr), precision)
+                assert getattr(a, attr) == pytest.approx(getattr(b, attr),abs=precision)
             else:
-                _list_assert_diff(getattr(a, attr), getattr(b, attr), precision)
+                assert not getattr(a, attr) == pytest.approx(getattr(b, attr),abs=precision)
 
     def _assert_same(
         a: hysr.types.ExtraBallsState, b: hysr.types.ExtraBallsState, precision: float
@@ -308,21 +295,23 @@ def test_reset(run_pam_mujocos):
 
     # ini and post should be different
     for ini, post in zip(init_states, post_states):
+        print()
+        print(ini)
+        print(post)
+        print()
         _assert_diff(ini, post, 0.05)
 
-    def commented():
+    # reset
+    for eb in extra_balls:
+        eb.reset()
+    with ParallelBursts(extra_balls) as pb:
+        pb.burst(1)
 
-        # reset
-        for eb in extra_balls:
-            eb.reset()
-        with ParallelBursts(extra_balls) as pb:
-            pb.burst(1)
+    # updated states
+    reset_states = [eb.get() for eb in extra_balls]
 
-        # updated states
-        reset_states = [eb.get() for eb in extra_balls]
+    attrs = [a for a in dir(hysr.types.ExtraBallsState) if not a.startswith("_")]
 
-        attrs = [a for a in dir(hysr.types.ExtraBallsState) if not a.startswith("_")]
-
-        # reset and init states should be the same
-        for init, reset in zip(init_states, reset_states):
-            _assert_same(init, reset)
+    # reset and init states should be the same
+    for init, reset in zip(init_states, reset_states):
+        _assert_same(init, reset, 1e-3)

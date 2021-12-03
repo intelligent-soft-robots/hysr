@@ -1,0 +1,21 @@
+MuJoCo Pro Department license activation key, number 7443, type 6.
+
+Issued to Max Planck Institute for Intelligent Systems.
+
+Expires February 2, 2022.
+
+Do not share this file with anyone other than the users covered
+by your license agreement with Roboti LLC. This file activates
+MuJoCo Pro on any computer running any supported OS.
+
+Do not modify this file. Its entire content, including the
+plain text section, is used by the activation manager.
+
+55b2389594b77a73beacb317533172df189656afcde0831bac22acd857c42936
+2ef836ee57c14d8fc7e5b5ebc50772660a9dc31dc507aa1a67655275ccf3adc0
+d89c1ae0c340c92d38937e08ec8d92afdc2740f100bb38f98518bdedb608a1f2
+3792151b7f40181a79f358215f850040160b2463548e6933e7dbd879d6bba25b
+d43ae959e653bf364c86bb6e634a8dd306ddfe1c8259a787123d68186a3c8e1a
+bce0b1f17d42225bbc874b8d8e1d0dc226a09cd1d6be21c466e71f1a52a58fe0
+f70279cce5f4d51c1aaae0b45af9a300443a5593afd8e78ebea099b4b95a19e6
+e07bdd5e2ab57f10b6e31164eaca98b6c106400960f99a71ec7a62bc34b8e9b3

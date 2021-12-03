@@ -1,11 +1,11 @@
 import time, threading, typing, pam_mujoco
 from .extra_balls import ExtraBallsSet
+from .main_sim import MainSim
 
-
-# both MujocoHandle and ExtraBallsSet provide a burst method
-# (the one of ExtraBallsSet calls the burst method of its private
+# both MujocoHandle, MainSim and ExtraBallsSet provide a burst method
+# (the ones of MainSim and ExtraBallsSet calls the burst method of its private
 #  (mujoco) handle attribute)
-BURSTER = typing.Union[pam_mujoco.MujocoHandle, ExtraBallsSet]
+BURSTER = typing.Union[pam_mujoco.MujocoHandle, ExtraBallsSet, MainSim]
 
 
 class ParallelBursts:

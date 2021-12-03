@@ -17,7 +17,7 @@ Orientation3D = typing.Tuple[float, float, float,
                              float, float, float]
 """ 3d orientation as 9d float tuple (flatted matrix) """
 
-CartesianPose = typing.Tuple(Point3D, Orientation3D)
+CartesianPose = typing.Tuple[Point3D, Orientation3D]
 """ for the 3d cartesian position and orientation of the racket """
 
 
@@ -69,7 +69,6 @@ class MainSimState:
     time_stamp: int = None
 
 
-
 @dataclass
 class ExtraBallsState:
     """
@@ -104,3 +103,37 @@ class ExtraBallsState:
     racket_cartesian: Point3D = None
     iteration: int = None
     time_stamp: int = None
+
+    
+@dataclass
+class PressureRobotState:
+    """ Snapshot state of a pressure controlled robot
+
+    Attributes
+    ----------
+    positions: 
+      for each joint, in radian
+    velocities:
+      for each joint, in radian per second
+    desired_pressures:
+      for each joint, agonist and antagonist pressures
+    observed_pressures:
+      for each joint, agonist and antagonist pressures
+    iteration:
+      iteration of the backend
+    time_stamp: 
+      time_stamp of the backend, in nanoseconds
+    """
+
+    joint_positions: JointStates = None
+    joint_velocities: JointStates = None
+    desired_pressures: typing.Tuple[
+        JointPressures, JointPressures, JointPressures, JointPressures
+    ] = None
+    observed_pressures: typing.Tuple[
+        JointPressures, JointPressures, JointPressures, JointPressures
+    ] = None
+    iteration: int = None
+    time_stamp: int = None
+
+    

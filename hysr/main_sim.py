@@ -124,7 +124,7 @@ class MainSim:
         first simulation step, where all items are set according
         to the mujoco xml configuration file.
         """
-        self._handle.reset()
+        self._handle.reset(_ball_segment_id)
         
     def get_contact(self) -> context.ContactInformation:
         """
@@ -149,14 +149,14 @@ class MainSim:
         Contact will no longer be ignored (if 'deactivate_contact'
         has been previously called)
         """
-        list(map(self._handle.activate_contact, self._get_segment_ids(index)))
+        self._handle.activate_contact(_ball_segment_id)
 
     def deactivate_contact(self) -> None:
         """
         Contacts between the ball and the racket
         will be ignored.
         """
-        self._handle.deactivate_contact()
+        self._handle.deactivate_contact(_ball_segment_id)
 
     def reset_contact(self) -> None:
         """
@@ -164,7 +164,7 @@ class MainSim:
         i.e. past contacts will be 'forgotten' and the 
         o80 backend regains control of the ball.
         """
-        self._handle.reset_contact()
+        self._handle.reset_contact(_ball_segment_id)
 
     def get(self) -> types.MainSimState:
         """
