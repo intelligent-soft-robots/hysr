@@ -31,7 +31,13 @@ def run_pam_mujocos(request, scope="function") -> None:
 
 
 def test_mirroring(run_pam_mujocos):
-
+    """
+    Testing that instances of MainSim and ExtraBallsSet can
+    successfully mirror the pseudo real robot. Also check
+    balls playing the same trajectories in the main sim and in 
+    the extra balls set remain aligned.
+    """
+    
     # instantiating the robot and simulations
     graphics = False
     scene = hysr.Scene.get_defaults()
