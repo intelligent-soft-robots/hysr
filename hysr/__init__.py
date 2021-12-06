@@ -12,8 +12,8 @@ from .pressure_robot import (
     SimPressureRobot,
     SimAcceleratedPressureRobot,
 )
-from .ball_trajectories import(
+from .ball_trajectories import (
     LineTrajectory,
     IndexedRecordedTrajectory,
-    RandomRecordedTrajectory
+    RandomRecordedTrajectory,
 )

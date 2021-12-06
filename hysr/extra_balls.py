@@ -4,7 +4,14 @@ import typing
 import o80, context, pam_mujoco
 
 # imports from hysr
-from .types import ListOrIndex, AcceptedNbOfBalls, Point3D, ExtraBall, ExtraBallsState, JointStates
+from .types import (
+    ListOrIndex,
+    AcceptedNbOfBalls,
+    Point3D,
+    ExtraBall,
+    ExtraBallsState,
+    JointStates,
+)
 from .scene import Scene
 from .ball_trajectories import TrajectoryGetter, RandomRecordedTrajectory
 
@@ -134,7 +141,6 @@ class ExtraBallsSet:
         # robot frontend
         self._robot_frontend = self._handle.frontends[self._segment_id_robot]
 
-        
     def _get_segment_ids(self, index: ListOrIndex) -> typing.Sequence[str]:
         # convenience method returning all segment ids if index is None,
         # and a list of segment ids otherwise (of len 1 if index is an int)
@@ -225,19 +231,24 @@ class ExtraBallsSet:
         # robot observation
         robot_observation = self._robot_frontend.latest()
         return ExtraBallsState(
-            ball_positions, ball_velocities, contacts,
-            robot_observation.get_positions(), robot_observation.get_velocities(),
-            racket_cartesian, iteration, time_stamp
+            ball_positions,
+            ball_velocities,
+            contacts,
+            robot_observation.get_positions(),
+            robot_observation.get_velocities(),
+            racket_cartesian,
+            iteration,
+            time_stamp,
         )
 
-    def reset(self)->None:
+    def reset(self) -> None:
         """
         Do a full simulation reset, i.e. restore the state of the 
         first simulation step, where all items are set according
         to the mujoco xml configuration file.
         """
         self._handle.reset()
-    
+
     def load_trajectories(self) -> None:
         """
         Generate trajectories using the trajectory_getter (cf constructor)
@@ -261,7 +272,9 @@ class ExtraBallsSet:
             for item in trajectory[1:]:
                 item3d.set_position(item.position)
                 item3d.set_velocity(item.velocity)
-                self._balls_frontend.add_command(index_ball, item3d, duration, o80.Mode.QUEUE)
+                self._balls_frontend.add_command(
+                    index_ball, item3d, duration, o80.Mode.QUEUE
+                )
         self._balls_frontend.pulse()
 
     def set_robot(self, positions: JointStates, velocities: JointStates) -> None:
@@ -269,9 +282,7 @@ class ExtraBallsSet:
         Set a command for the o80 backend of the robot. Will not be shared with
         the backend until the burst method is called.
         """
-        self._robot_frontend.add_command(
-            positions, velocities, o80.Mode.OVERWRITE
-        )
+        self._robot_frontend.add_command(positions, velocities, o80.Mode.OVERWRITE)
         self._robot_frontend.pulse()
 
     @staticmethod

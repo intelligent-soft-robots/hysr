@@ -12,9 +12,9 @@ AcceptedNbOfBalls = typing.Literal[3, 10, 20, 50, 100]
 Point3D = typing.Tuple[float, float, float]
 """ For 3d position or 3d velocities  """
 
-Orientation3D = typing.Tuple[float, float, float,
-                             float, float, float,
-                             float, float, float]
+Orientation3D = typing.Tuple[
+    float, float, float, float, float, float, float, float, float
+]
 """ 3d orientation as 9d float tuple (flatted matrix) """
 
 CartesianPose = typing.Tuple[Point3D, Orientation3D]
@@ -62,9 +62,9 @@ class MainSimState:
 
     ball_position: Point3D = None
     ball_velocity: Point3D = None
-    joint_positions : JointStates = None
-    joint_velocities : JointStates = None
-    racket_cartesian : CartesianPose = None
+    joint_positions: JointStates = None
+    joint_velocities: JointStates = None
+    racket_cartesian: CartesianPose = None
     iteration: int = None
     time_stamp: int = None
 
@@ -98,13 +98,13 @@ class ExtraBallsState:
     ball_positions: typing.Sequence[Point3D] = None
     ball_velocities: typing.Sequence[Point3D] = None
     contacts: typing.Sequence[bool] = None
-    joint_positions : JointStates = None
-    joint_velocities : JointStates = None
+    joint_positions: JointStates = None
+    joint_velocities: JointStates = None
     racket_cartesian: Point3D = None
     iteration: int = None
     time_stamp: int = None
 
-    
+
 @dataclass
 class PressureRobotState:
     """ Snapshot state of a pressure controlled robot
@@ -135,5 +135,3 @@ class PressureRobotState:
     ] = None
     iteration: int = None
     time_stamp: int = None
-
-    

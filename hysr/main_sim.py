@@ -33,7 +33,6 @@ class MainSim:
       Will be used to set trajectories to the ball.
     """
 
-    
     def __init__(
         self,
         graphics: bool,
@@ -108,14 +107,14 @@ class MainSim:
         duration = o80.Duration_us.nanoseconds(rate_ns)
 
         # going to first trajectory point
-        self._frontend_ball.add_command(trajectory[0].position,
-                                        trajectory[0].velocity,
-                                        o80.Mode.OVERWRITE)
+        self._frontend_ball.add_command(
+            trajectory[0].position, trajectory[0].velocity, o80.Mode.OVERWRITE
+        )
         # loading full trajectory
         for item in trajectory[1:]:
-            self._frontend_ball.add_command(item.position,
-                                            item.velocity,
-                                            duration, o80.Mode.QUEUE)
+            self._frontend_ball.add_command(
+                item.position, item.velocity, duration, o80.Mode.QUEUE
+            )
         self._frontend_ball.pulse()
 
     def reset(self) -> None:
@@ -125,7 +124,7 @@ class MainSim:
         to the mujoco xml configuration file.
         """
         self._handle.reset(_ball_segment_id)
-        
+
     def get_contact(self) -> context.ContactInformation:
         """
         Return the contact information between the ball and the racket.
@@ -179,23 +178,29 @@ class MainSim:
             ball_velocity[dim] = ball.get(2 * dim + 1).get()
         # robot observation
         robot_obs = self._frontend_robot.latest()
-        cartesian = (robot_obs.get_cartesian_position(),
-                     robot_obs.get_cartesian_orientation())
+        cartesian = (
+            robot_obs.get_cartesian_position(),
+            robot_obs.get_cartesian_orientation(),
+        )
         # returning
-        return types.MainSimState(ball_position,ball_velocity,
-                                  robot_obs.get_positions(),robot_obs.get_velocities(),
-                                  cartesian,
-                                  robot_obs.get_iteration(), robot_obs.get_time_stamp())
+        return types.MainSimState(
+            ball_position,
+            ball_velocity,
+            robot_obs.get_positions(),
+            robot_obs.get_velocities(),
+            cartesian,
+            robot_obs.get_iteration(),
+            robot_obs.get_time_stamp(),
+        )
 
-    def set_robot(self, positions: types.JointStates, velocities: types.JointStates) -> None:
+    def set_robot(
+        self, positions: types.JointStates, velocities: types.JointStates
+    ) -> None:
         """
         Set a command for the o80 backend of the robot. 
         """
-        self._frontend_robot.add_command(
-            positions, velocities, o80.Mode.OVERWRITE
-        )
+        self._frontend_robot.add_command(positions, velocities, o80.Mode.OVERWRITE)
         self._frontend_robot.pulse()
-        
 
     @staticmethod
     def get_mujoco_id() -> str:

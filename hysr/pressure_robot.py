@@ -4,8 +4,6 @@ import o80, o80_pam, pam_mujoco
 from .types import RobotPressures, JointPressures, JointStates, PressureRobotState
 
 
-
-
 class PressureRobot:
 
     """ Superclass for all pressure controlled robot, subclasses being
