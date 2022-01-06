@@ -20,7 +20,6 @@ Orientation3D = typing.Tuple[
 CartesianPose = typing.Tuple[Point3D, Orientation3D]
 """ for the 3d cartesian position and orientation of the racket """
 
-
 ExtraBall = typing.Tuple[Point3D, Point3D, bool]
 """ Position 3d, Velocity 3d, and contact info
   (True if the ball ever had a contact with the racket, since
@@ -135,3 +134,24 @@ class PressureRobotState:
     ] = None
     iteration: int = None
     time_stamp: int = None
+
+
+@dataclass
+class States:
+    """ Snapshot states of a full HYSR setup,
+    i.e. state of the pressure robot, of the 
+    main simulation and of the extra balls.
+
+    Attributes
+    ----------
+    pressure_robot:
+      state of the pressure robot
+    main_sim:
+      state of the main simulation
+    extra_balls:
+      states of the ExtraBallsSet(s)
+    """
+
+    pressure_robot: PressureRobotState
+    main_sim: MainSimState
+    extra_balls: typing.Sequence[ExtraBallsState]

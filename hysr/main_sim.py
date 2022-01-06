@@ -123,7 +123,7 @@ class MainSim:
         first simulation step, where all items are set according
         to the mujoco xml configuration file.
         """
-        self._handle.reset(_ball_segment_id)
+        self._handle.reset()
 
     def get_contact(self) -> context.ContactInformation:
         """

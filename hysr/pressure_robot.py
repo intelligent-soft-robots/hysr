@@ -14,6 +14,24 @@ class PressureRobot:
     def __init__(self, frontend: o80_pam.FrontEnd):
         self._frontend = frontend
 
+    def is_accelerated_time(self) -> bool:
+        """ Returns True if the instance controls
+        a robot running in (simulated) accelerated time.
+        Value will be different based on the 
+        subclass of PressureRobot that is implementing
+        the method.
+        """
+        raise NotImplementedError()
+
+    def reset(self) -> None:
+        """ 
+        Do a full simulation reset, i.e. restore the state of the 
+        first simulation step, where all items are set according
+        to the mujoco xml configuration file.
+        For the real robot: raise a NotImplementedError
+        """
+        raise NotImplementedError()
+
     def get_state(self) -> PressureRobotState:
         """ Returns the current state of the robot
         """
@@ -72,6 +90,14 @@ class PamMujocoPressureRobot:
         )
         self._frontend: o80_pam.FrontEnd = self._handle.frontends[segment_id]
 
+    def reset(self):
+        """
+        Do a full simulation reset, i.e. restore the state of the 
+        first simulation step, where all items are set according
+        to the mujoco xml configuration file.
+        """
+        self._handle.reset()
+
 
 class RealTimePressureRobot(PressureRobot):
 
@@ -82,6 +108,9 @@ class RealTimePressureRobot(PressureRobot):
 
     def __init__(self, frontend: o80_pam.FrontEnd):
         super().__init__(frontend)
+
+    def is_accelerated_time(self) -> bool:
+        return False
 
     def pulse(self) -> None:
         """ Has the frontend pulsing, i.e. sharing the 
@@ -117,6 +146,9 @@ class RealRobot(RealTimePressureRobot):
             )
         super().__init__(frontend)
 
+    def is_accelerated_time(self) -> bool:
+        return False
+
 
 class SimPressureRobot(PamMujocoPressureRobot, RealTimePressureRobot):
 
@@ -142,6 +174,9 @@ class SimPressureRobot(PamMujocoPressureRobot, RealTimePressureRobot):
             accelerated_time,
         )
         RealTimePressureRobot.__init__(self, self._frontend)
+
+    def is_accelerated_time(self) -> bool:
+        return False
 
 
 class SimAcceleratedPressureRobot(PamMujocoPressureRobot, PressureRobot):
@@ -169,6 +204,9 @@ class SimAcceleratedPressureRobot(PamMujocoPressureRobot, PressureRobot):
             accelerated_time,
         )
         PressureRobot.__init__(self, self._frontend)
+
+    def is_accelerated_time(self) -> bool:
+        return True
 
     def burst(self, nb_bursts: int) -> None:
         """ Has the frontend pulsing, i.e. sharing the 
