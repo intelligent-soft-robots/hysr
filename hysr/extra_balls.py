@@ -211,7 +211,7 @@ class ExtraBallsSet:
         """
         self._trajectory_getter = trajectory_getter
 
-    def get(self) -> ExtraBallsState:
+    def get_state(self) -> ExtraBallsState:
         """
         Returns the current state of this extra balls set
         """

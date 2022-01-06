@@ -165,7 +165,7 @@ class MainSim:
         """
         self._handle.reset_contact(_ball_segment_id)
 
-    def get(self) -> types.MainSimState:
+    def get_state(self) -> types.MainSimState:
         """
         Returns the current state of the simulation. """
         # ball observation

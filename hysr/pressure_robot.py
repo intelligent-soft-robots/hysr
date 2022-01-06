@@ -14,7 +14,7 @@ class PressureRobot:
     def __init__(self, frontend: o80_pam.FrontEnd):
         self._frontend = frontend
 
-    def get(self) -> PressureRobotState:
+    def get_state(self) -> PressureRobotState:
         """ Returns the current state of the robot
         """
         obs = self._frontend.latest()

@@ -85,7 +85,7 @@ def test_line_trajectory(run_pam_mujocos):
             assert position[0] > 0.0
             assert position[0] < 1.0
 
-        state = extra_balls.get()
+        state = extra_balls.get_state()
         for position in state.ball_positions:
             _check_mid_position(position)
 
@@ -96,7 +96,7 @@ def test_line_trajectory(run_pam_mujocos):
             assert position[1] == pytest.approx(0.0, abs=precision)
             assert position[2] == pytest.approx(3.0, abs=precision)
 
-        state = extra_balls.get()
+        state = extra_balls.get_state()
         for position in state.ball_positions:
             _check_end_position(position)
 
@@ -168,7 +168,7 @@ def test_contacts(run_pam_mujocos):
     # control should have been lost on all balls except the
     # first one. So, only the first one should be at the end position
     for eb in extra_balls:
-        state: ExtraBallsState = eb.get()
+        state: ExtraBallsState = eb.get_state()
         positions = state.ball_positions
         precision = 0.001
         for dim in range(3):
@@ -194,7 +194,7 @@ def test_contacts(run_pam_mujocos):
 
     # now, all balls should be at the end position
     for eb in extra_balls:
-        state: ExtraBallsState = eb.get()
+        state: ExtraBallsState = eb.get_state()
         positions = state.ball_positions
         precision = 0.001
         for position in positions:
@@ -214,7 +214,7 @@ def test_random_trajectories(run_pam_mujocos):
     extra_balls: ExtraBallsSet = run_pam_mujocos[0]
     extra_balls.load_trajectories()
     extra_balls.burst(1000)
-    state: hysr.types.ExtraBallsSet = extra_balls.get()
+    state: hysr.types.ExtraBallsSet = extra_balls.get_state()
     for index, p1 in enumerate(state.ball_positions):
         for p2 in state.ball_positions[index + 1 :]:
             assert not p1 == p2
@@ -224,7 +224,7 @@ def test_random_trajectories(run_pam_mujocos):
     extra_balls.set_trajectory_getter(trajectory_getter)
     extra_balls.load_trajectories()
     extra_balls.burst(1000)
-    state: hysr.types.ExtraBallsSet = extra_balls.get()
+    state: hysr.types.ExtraBallsSet = extra_balls.get_state()
     for index, p1 in enumerate(state.ball_positions):
         for p2 in state.ball_positions[index + 1 :]:
             assert p1 == p2
@@ -281,7 +281,7 @@ def test_reset(run_pam_mujocos):
     extra_balls: typing.Sequence[ExtraBallsSet] = run_pam_mujocos
 
     # initial state
-    init_states = [eb.get() for eb in extra_balls]
+    init_states = [eb.get_state() for eb in extra_balls]
 
     # some motions
     robot_position = [1.0] * 4
@@ -293,7 +293,7 @@ def test_reset(run_pam_mujocos):
         pb.burst(3000)
 
     # new states
-    post_states = [eb.get() for eb in extra_balls]
+    post_states = [eb.get_state() for eb in extra_balls]
 
     # ini and post should be different
     for ini, post in zip(init_states, post_states):
@@ -306,7 +306,7 @@ def test_reset(run_pam_mujocos):
         pb.burst(1)
 
     # updated states
-    reset_states = [eb.get() for eb in extra_balls]
+    reset_states = [eb.get_state() for eb in extra_balls]
 
     # reset and init states should be the same
     for init, reset in zip(init_states, reset_states):

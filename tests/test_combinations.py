@@ -80,7 +80,7 @@ def test_mirroring(run_pam_mujocos):
         nb_iterations = 1000
         for _ in range(nb_iterations):
             pressure_robot.burst(1)
-            robot_state = pressure_robot.get()
+            robot_state = pressure_robot.get_state()
             main_sim.set_robot(
                 robot_state.joint_positions, robot_state.joint_velocities
             )
@@ -90,9 +90,9 @@ def test_mirroring(run_pam_mujocos):
             parallel_bursts.burst(1)
 
         # getting final states of all
-        robot_state = pressure_robot.get()
-        main_sim_state = main_sim.get()
-        extra_balls_state = extra_balls_set.get()
+        robot_state = pressure_robot.get_state()
+        main_sim_state = main_sim.get_state()
+        extra_balls_state = extra_balls_set.get_state()
 
         # checking time stamp and iterations aligned
         assert robot_state.time_stamp == main_sim_state.time_stamp
