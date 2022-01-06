@@ -1,11 +1,11 @@
 import time, threading, typing, pam_mujoco
 from .extra_balls import ExtraBallsSet
+from .main_sim import MainSim
 
-
-# both MujocoHandle and ExtraBallsSet provide a burst method
-# (the one of ExtraBallsSet calls the burst method of its private
+# both MujocoHandle, MainSim and ExtraBallsSet provide a burst method
+# (the ones of MainSim and ExtraBallsSet calls the burst method of its private
 #  (mujoco) handle attribute)
-BURSTER = typing.Union[pam_mujoco.MujocoHandle, ExtraBallsSet]
+BURSTER = typing.Union[pam_mujoco.MujocoHandle, ExtraBallsSet, MainSim]
 
 
 class ParallelBursts:
@@ -16,9 +16,12 @@ class ParallelBursts:
     For this to work, the handle must correspond to backend that are running
     in bursting mode.
 
-    Args:
-        handles: list of handles (or of instances of other classes providing a burst method)
-        wait: wait duration (in second) of the thread loops
+    Arguments
+    ---------
+    handles: 
+      list of handles (or of instances of other classes providing a burst method)
+    wait: 
+      wait duration (in second) of the thread loops
     """
 
     def __init__(self, handles: typing.Sequence[BURSTER], wait: float = 0.0001):

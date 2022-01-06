@@ -1,39 +1,7 @@
 import pathlib, typing
 from dataclasses import dataclass
 import o80, o80_pam, pam_mujoco
-from .types import RobotPressures, JointPressures
-
-
-@dataclass
-class PressureRobotState:
-    """ Snapshot state of a pressure controlled robot
-
-    Attributes
-    ----------
-    positions: 
-      for each joint, in radian
-    velocities:
-      for each joint, in radian per second
-    desired_pressures:
-      for each joint, agonist and antagonist pressures
-    observed_pressures:
-      for each joint, agonist and antagonist pressures
-    iteration:
-      iteration of the backend
-    time_stamp: 
-      time_stamp of the backend, in nanoseconds
-    """
-
-    positions: RobotPressures = None
-    velocities: RobotPressures = None
-    desired_pressures: typing.Tuple[
-        JointPressures, JointPressures, JointPressures, JointPressures
-    ] = None
-    observed_pressures: typing.Tuple[
-        JointPressures, JointPressures, JointPressures, JointPressures
-    ] = None
-    iteration: int = None
-    time_stamp: int = None
+from .types import RobotPressures, JointPressures, JointStates, PressureRobotState
 
 
 class PressureRobot:
@@ -46,15 +14,15 @@ class PressureRobot:
     def __init__(self, frontend: o80_pam.FrontEnd):
         self._frontend = frontend
 
-    def get(self) -> PressureRobotState:
+    def get_state(self) -> PressureRobotState:
         """ Returns the current state of the robot
         """
         obs = self._frontend.latest()
         state = PressureRobotState()
         state.desired_pressures = tuple(obs.get_desired_pressures())
         state.observed_pressures = tuple(obs.get_observed_pressures())
-        state.positions = obs.get_positions()
-        state.velocities = obs.get_velocities()
+        state.joint_positions = obs.get_positions()
+        state.joint_velocities = obs.get_velocities()
         state.iteration = obs.get_iteration()
         state.time_stamp = obs.get_time_stamp()
         return state

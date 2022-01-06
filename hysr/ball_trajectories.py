@@ -136,14 +136,14 @@ class RandomRecordedTrajectory(TrajectoryGetter):
         trajectories), a ValueError is thrown.
         """
         global _trajectory_reader_g
-        if nb_trajectories >= _trajectory_reader_.size():
+        if nb_trajectories >= _trajectory_reader_g.size():
             raise ValueError(
                 str(
                     "Requested number of trajectories {} not supported ",
                     "(there are only {} recorded trajectories)",
                 ).format(index, _trajectory_reader.size())
             )
-        return _trajectory_readrer_g.get_different_random_trajectories(nb_trajectories)
+        return _trajectory_reader_g.get_different_random_trajectories(nb_trajectories)
 
     def get_sample_rate(self) -> float:
         """

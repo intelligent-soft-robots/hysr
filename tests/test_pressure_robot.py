@@ -44,16 +44,16 @@ def _test_sim_pressure_robot(accelerated):
     )
 
     # checking the backend is running
-    time_stamp1 = robot.get().time_stamp
-    iteration1 = robot.get().iteration
+    time_stamp1 = robot.get_state().time_stamp
+    iteration1 = robot.get_state().iteration
     time_wait = 0.2
     if accelerated:
         nb_iterations = int(time_wait / Defaults.mujoco_period)
         robot.burst(nb_iterations)
     else:
         time.sleep(time_wait)
-    time_stamp2 = robot.get().time_stamp
-    iteration2 = robot.get().iteration
+    time_stamp2 = robot.get_state().time_stamp
+    iteration2 = robot.get_state().iteration
     assert time_stamp2 > time_stamp1
     assert iteration2 > iteration1
 
@@ -70,7 +70,7 @@ def _test_sim_pressure_robot(accelerated):
     else:
         robot.pulse()
     time.sleep(0.1)
-    get_pressures: types.RobotPressures = robot.get().desired_pressures
+    get_pressures: types.RobotPressures = robot.get_state().desired_pressures
     assert set_pressures == get_pressures
 
 
