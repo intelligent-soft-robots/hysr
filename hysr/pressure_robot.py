@@ -14,6 +14,14 @@ class PressureRobot:
     def __init__(self, frontend: o80_pam.FrontEnd):
         self._frontend = frontend
 
+    def get_time_step(self)->float:
+        """ Returns the control iteration period of the robot,
+        for simulated robots, should be the same as the
+        mujoco period. For real, it should be the 
+        o80 control frequency
+        """
+        raise NotImplementedError()
+        
     def is_accelerated_time(self) -> bool:
         """ Returns True if the instance controls
         a robot running in (simulated) accelerated time.
@@ -60,13 +68,16 @@ class PamMujocoPressureRobot:
 
     def __init__(
         self,
-        mujoco_id: str,
-        segment_id: str,
-        pam_config_file: pathlib.Path,
-        pam_model_file: pathlib.Path,
-        graphics: bool,
-        accelerated_time: bool,
+            mujoco_id: str,
+            segment_id: str,
+            pam_config_file: pathlib.Path,
+            pam_model_file: pathlib.Path,
+            graphics: bool,
+            accelerated_time: bool,
+            mujoco_time_step: float,
     ):
+
+        self._time_step = mujoco_time_step
 
         if accelerated_time:
             burst_mode = True
@@ -90,7 +101,15 @@ class PamMujocoPressureRobot:
         )
         self._frontend: o80_pam.FrontEnd = self._handle.frontends[segment_id]
 
-    def reset(self):
+    def get_time_step(self)->float:
+        """
+        Returns the time step (control period) of the simulated robot,
+        in seconds
+        """
+        return self._time_step
+        
+        
+    def reset(self)->None:
         """
         Do a full simulation reset, i.e. restore the state of the 
         first simulation step, where all items are set according
@@ -146,6 +165,10 @@ class RealRobot(RealTimePressureRobot):
             )
         super().__init__(frontend)
 
+    def get_time_step(self)->float:
+        frequency : float = self._frontend.get_frequency()
+        return 1.0/frequency
+        
     def is_accelerated_time(self) -> bool:
         return False
 

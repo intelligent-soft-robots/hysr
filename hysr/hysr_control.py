@@ -6,22 +6,22 @@ from .main_sim import MainSim
 from .extra_balls import ExtraBallsSet
 from .parallel_bursts import ParallelBursts
 from . import types
-from .time_steps import TimeSteps
 
 
 class HysrControl:
     def __init__(
-        self,
-        pressure_robot: PressureRobot,
-        main_sim: MainSim,
-        extra_balls: typing.Sequence[ExtraBallsSet],
-        time_steps: TimeSteps,
+            self,
+            pressure_robot: PressureRobot,
+            main_sim: MainSim,
+            extra_balls: typing.Sequence[ExtraBallsSet],
+            mujoco_time_step : float
     ):
         self._pressure_robot = pressure_robot
         self._main_sim = main_sim
         self._extra_balls = extra_balls
         self._parallel_bursts = ParallelBursts([main_sim] + extra_balls)
-        self._time_steps = time_steps
+        self._mujoco_time_step = mujoco_time_step
+        self._pressure_robot_time_step = pressure_robot.get_time_step()
 
     def load_trajectories(self) -> None:
         self._main_sim.load_trajectory()
@@ -122,7 +122,7 @@ class HysrControl:
                 "position controller time step",
                 controller_time_step,
                 "robot pressure controller step",
-                self._time_steps.pressure_robot,
+                self._pressure_robot_time_step,
             )
         else:
             frequency_manager = o80.FrequencyManager(1.0 / controller_time_step)
@@ -132,7 +132,7 @@ class HysrControl:
             "position controller time step",
             controller_time_step,
             "mujoco time step",
-            self._time_steps.mujoco,
+            self._mujoco_time_step,
         )
 
         for _ in range(2):
@@ -178,3 +178,5 @@ class HysrControl:
         joint, in radian) using a position controller
         """
         self.to_robot_position(starting_posture, position_controller_factory)
+
+
