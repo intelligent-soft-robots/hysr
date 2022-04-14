@@ -42,6 +42,7 @@ class PamMujocoPressureRobot:
 
     def __init__(
         self,
+        robot_type: pam_mujoco.RobotType,
         mujoco_id: str,
         segment_id: str,
         pam_config_file: pathlib.Path,
@@ -56,6 +57,7 @@ class PamMujocoPressureRobot:
             burst_mode = False
 
         robot = pam_mujoco.MujocoRobot(
+            robot_type,
             segment_id,
             control=pam_mujoco.MujocoRobot.PRESSURE_CONTROL,
             json_control_path=str(pam_config_file),
@@ -125,6 +127,7 @@ class SimPressureRobot(PamMujocoPressureRobot, RealTimePressureRobot):
 
     def __init__(
         self,
+        robot_type: pam_mujoco.RobotType,
         mujoco_id: str,
         segment_id: str,
         pam_config_file: pathlib.Path,
@@ -134,6 +137,7 @@ class SimPressureRobot(PamMujocoPressureRobot, RealTimePressureRobot):
         accelerated_time: bool = False
         PamMujocoPressureRobot.__init__(
             self,
+            robot_type,
             mujoco_id,
             segment_id,
             pam_config_file,
@@ -152,6 +156,7 @@ class SimAcceleratedPressureRobot(PamMujocoPressureRobot, PressureRobot):
 
     def __init__(
         self,
+        robot_type: pam_mujoco.RobotType,
         mujoco_id: str,
         segment_id: str,
         pam_config_file: pathlib.Path,
@@ -161,6 +166,7 @@ class SimAcceleratedPressureRobot(PamMujocoPressureRobot, PressureRobot):
         accelerated_time = True
         PamMujocoPressureRobot.__init__(
             self,
+            robot_type,
             mujoco_id,
             segment_id,
             pam_config_file,

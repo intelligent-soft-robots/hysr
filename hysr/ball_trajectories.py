@@ -1,30 +1,40 @@
+import pathlib
 import typing
 import context
-
-Position = typing.Tuple[float, float, float]
-
-_trajectory_reader_g = context.BallTrajectories()
+from .types import StampedTrajectory, StampedTrajectories, DurationPoint
 
 
 class TrajectoryGetter:
-    def get_one(self) -> typing.Tuple[Position]:
+    """
+    Abstract super class for objets returning trajectories.
+    """
+
+    def get_one(self) -> StampedTrajectory:
+        """
+        Returns a trajectory.
+        """
         raise NotImplementedError(
             str("Subclasses of TrajectoryGetter" "must implement the get_one method")
         )
 
-    def get(self) -> typing.Sequence[typing.Sequence[Position]]:
+    def get(self) -> StampedTrajectories:
+        """
+        Returns a sequence of trajectories.
+        """
         raise NotImplementedError(
             str("Subclasses of TrajectoryGetter" "must implement the get method")
         )
 
-    def get_sample_rate(self) -> float:
-        raise NotImplementedError(
-            str(
-                "Subclasses of TrajectoryGetter"
-                "must implement the method "
-                "get_sample_rate"
-            )
-        )
+    @staticmethod
+    def iterate(
+        input: StampedTrajectory
+    ) -> typing.Generator[DurationPoint, None, None]:
+        """
+        Generator over the trajectory. 
+        Yields tuples (duration in microseconds, state), state having
+        a position and a velocity attribute.
+        """
+        return context.ball_trajectories.BallTrajectories.iterate(input)
 
 
 class LineTrajectory(TrajectoryGetter):
@@ -38,38 +48,40 @@ class LineTrajectory(TrajectoryGetter):
 
     def __init__(
         self,
-        start_position: Position,
-        end_position: Position,
+        start_position: typing.Sequence[float],
+        end_position: typing.Sequence[float],
         duration_seconds: float,
         sampling_rate_seconds: float,
     ):
-        self._start = start_position
-        self._end = end_position
-        self._duration = duration_seconds
-        self._rate = sampling_rate_seconds
-
-    def get_one(self) -> typing.Tuple[Position]:
-        """
-        Returns a trajectory of 3d points
-        """
-        duration_ms = self._duration * 1e3
-        trajectory_points = context.duration_line_trajectory(
-            self._start, self._end, duration_ms, sampling_rate=self._rate
+        self._sampling_rate = sampling_rate_seconds
+        duration_trajectory = context.ball_trajectories.duration_line_trajectory(
+            start_position,
+            end_position,
+            duration_seconds * 1000.0,
+            sampling_rate_seconds,
         )
-        return trajectory_points
+        self._stamped_trajectory = context.ball_trajectories.to_stamped_trajectory(
+            duration_trajectory
+        )
 
-    def get(self, nb_trajectories: int) -> typing.Sequence[typing.Sequence[Position]]:
+    def get_one(self) -> StampedTrajectory:
         """
-        Returns a list of trajectories, all idendical.
+        Returns a trajectory
         """
-        return [self.get_one()] * nb_trajectories
+        return self._stamped_trajectory
+
+    def get(self, nb_trajectories: int) -> StampedTrajectories:
+        """
+        Returns a sequence of trajectories, all idendical.
+        """
+        return [self._stamped_trajectory] * nb_trajectories
 
     def get_sample_rate(self) -> float:
         """
         Returns the sampling rate of the trajectories
         returned by the get and get_one methods (in seconds)
         """
-        return self._rate
+        return self._sampling_rate
 
 
 class IndexedRecordedTrajectory(TrajectoryGetter):
@@ -77,78 +89,69 @@ class IndexedRecordedTrajectory(TrajectoryGetter):
     """
     Class for getting the pre-recorded ball trajectory corresponding
     to the provided index.
-    If the provided index is too high (i.e. such recorded trajectory index
-    does not exist), an IndexError is thrown).
+    The trajectories are read from a hdf5 file possibly containing different
+    sets (group) of balls. If the group does not exists or the trajectory index
+    in the specified group does not exists, a KeyError is raised.
     """
 
-    def __init__(self, index: int):
-        global _trajectory_reader_g
-        if index >= _trajectory_reader_g.size():
-            raise IndexError(
-                str(
-                    "Trajectory index {} not supported " "(index supported up to {})"
-                ).format(index, _trajectory_reader_g.size())
+    def __init__(self, index: int, group: str, hdf5_path: pathlib.Path = None):
+        with context.RecordedBallTrajectoris(hdf5_path) as rbt:
+            if not group in rbt.get_groups():
+                raise KeyError(
+                    "failed to find the group {} in {}".format(group, hdf5_path)
+                )
+            indexes = rbt.get_indexes(group)
+            if not index in indexes:
+                max_index = max([int(i) for i in indexes])
+                raise KeyError(
+                    "failed to find the index {} "
+                    "in the group {} of the file {} "
+                    "(max index: {})".format(index, group, hdf5_path, max_index)
+                )
+            self._stamped_trajectory = rbt.get_stamped_trajectory(
+                group, index, direct=True
             )
         self._index = index
 
-    def get_one(self) -> typing.Sequence[Position]:
+    def get_one(self) -> StampedTrajectory:
         """
-        Returns a trajectory of 3d points
+        Returns a trajectory 
         """
-        global _trajectory_reader_g
-        trajectory_points = _trajectory_reader_g.get_trajectory(self._index)
-        return trajectory_points
+        return self._stamped_trajectory
 
-    def get(self, nb_trajectories: int) -> typing.Sequence[typing.Sequence[Position]]:
+    def get(self, nb_trajectories: int) -> StampedTrajectories:
         """
         Returns a list of trajectories, all idendical.
         """
-        return [self.get_one()] * nb_trajectories
-
-    def get_sample_rate(self) -> float:
-        """
-        Returns the sampling rate of the trajectories
-        returned by the get and get_one methods (in seconds)
-        """
-        global _trajectory_reader_g
-        return float(_trajectory_reader_g.get_sampling_rate_ms()) * 1e3
+        return [self._stamped_trajecotries] * nb_trajectories
 
 
 class RandomRecordedTrajectory(TrajectoryGetter):
 
     """
     Class for getting one of the pre-recorded ball trajectory,
-    randomly selected
+    randomly selected. The trajectories are read from an hdf5 file.
+    If the specified trajectories group in the file is not found,
+    a KeyError is raise.
     """
 
-    def get_one(self) -> typing.Sequence[Position]:
-        """
-        Returns a trajectory of 3d points
-        """
-        global _trajectory_reader_g
-        _, trajectory_points = _trajectory_reader_g.random_trajectory()
-        return trajectory_points
+    def __init__(self, group: str, hdf5_path: pathlib.Path = None):
+        self._ball_trajectories = context.ball_trajectories.BallTrajectories(
+            group, hdf5_path=hdf5_path
+        )
 
-    def get(self, nb_trajectories: int) -> typing.Sequence[typing.Sequence[Position]]:
+    def get_one(self) -> StampedTrajectory:
         """
-        Returns a list of trajectories, all differents.
+        Returns a trajectory 
+        """
+        return self._ball_trajectories.random_trajectory()
+
+    def get(self, nb_trajectories: int) -> StampedTrajectories:
+        """
+        Returns a sequence of trajectories, all differents.
         If nb_trajectories is too high (i.e. there are not so many different recorded
         trajectories), a ValueError is thrown.
         """
-        global _trajectory_reader_g
-        if nb_trajectories >= _trajectory_reader_g.size():
-            raise ValueError(
-                str(
-                    "Requested number of trajectories {} not supported ",
-                    "(there are only {} recorded trajectories)",
-                ).format(index, _trajectory_reader.size())
-            )
-        return _trajectory_reader_g.get_different_random_trajectories(nb_trajectories)
-
-    def get_sample_rate(self) -> float:
-        """
-        Returns the sampling rate of the trajectories
-        returned by the get and get_one methods (in seconds)
-        """
-        global _trajectory_reader_g
-        return float(_trajectory_reader_g.get_sampling_rate_ms()) * 1e3
+        return self._ball_trajectories.get_different_random_trajectories(
+            nb_trajectories
+        )

@@ -1,19 +1,14 @@
 import typing
+from dataclasses import dataclass
 
 # imports from pam_mujoco colcon space
 import o80, context, pam_mujoco
 
 # imports from hysr
-from .types import (
-    ListOrIndex,
-    AcceptedNbOfBalls,
-    Point3D,
-    ExtraBall,
-    ExtraBallsState,
-    JointStates,
-)
+from .types import ListOrIndex, AcceptedNbOfBalls, Point3D, ExtraBall
 from .scene import Scene
 from .ball_trajectories import TrajectoryGetter, RandomRecordedTrajectory
+
 
 # the underlying c++ controller do not accept any number of
 # extra balls per pam_mujoco processes (because each
@@ -21,9 +16,27 @@ from .ball_trajectories import TrajectoryGetter, RandomRecordedTrajectory
 # see pam_mujoco/srcpy/wrappers.cpp
 _nb_balls_accepted_values_g = (3, 10, 20, 50, 100)
 
-# each extra balls set is related to a pam_mujoco instance
-# by sharing the same mujoco_id, e.g. for set 1, "hysr_extra_balls_1"
-_mujoco_id_prefix_g: str = "hysr_extra_balls_"
+
+@dataclass
+class ExtraBallsState:
+    """
+    Snapshot state of an ExtraBallsState.
+    Attributes:
+      positions (list of 3d positions): positions of the balls
+      velocities (list of 3d positions): velocities of the balls
+      contacts (list of bool): if True, the corresponding ball had a 
+        contact with the racket since the last call to reset
+      racket_cartesian (3d position): position of the racket
+      iteration (int): iteration of the mujoco simulation
+      time_stamp (int): time stamp of the mujoco simulation (nanoseconds)
+    """
+
+    positions: typing.Sequence[Point3D]
+    velocities: typing.Sequence[Point3D]
+    contacts: typing.Sequence[bool]
+    racket_cartesian: Point3D
+    iteration: int
+    time_stamp: int
 
 
 class ExtraBallsSet:
@@ -35,23 +48,15 @@ class ExtraBallsSet:
     The mujoco simulation as configured by this class will run in accelerated time and in
     bursting mode.
 
-    Arguments
-    ---------
-    setid: 
-      id of the extra ball set (arbitrary, but must be different of all sets).
-    nb_balls: 
-      has to be 3, 10, 20, 50 or 100.
-    graphics: 
-      if the mujoco simulation should run graphics.
-    scene: 
-      position and orientation of the table and robot.
-    contact:
-      which contact between the enviromnent and the balls should be.
-    monitored:
-      optional, default: the racket of the robot.
-    trajectory_getter: 
-      will be used to set the trajectories the balls
-      will be required to follow
+    Args:
+         setid: id of the extra ball set (arbitrary, but must be different of all sets)
+         nb_balls: has to be 3, 10, 20, 50 or 100
+         graphics: if the mujoco simulation should run graphics
+         scene : position and orientation of the table and robot
+         trajectory_getter: instance of ball_behavior.TrajectoryGetter. Will be used
+                            to set the trajectories the balls will be required to follow
+         contact: which contact between the enviromnent and the balls should be
+                  monitored (optional, default: the racket of the robot)
     """
 
     def __init__(
@@ -60,8 +65,8 @@ class ExtraBallsSet:
         nb_balls: AcceptedNbOfBalls,
         graphics: bool,
         scene: Scene,
+        trajectory_getter: TrajectoryGetter,
         contact: pam_mujoco.ContactTypes = pam_mujoco.ContactTypes.racket1,
-        trajectory_getter: TrajectoryGetter = RandomRecordedTrajectory(),
     ):
 
         # not any number of balls is accepted. Checking the
@@ -107,6 +112,7 @@ class ExtraBallsSet:
 
         # configuring the robot
         robot = pam_mujoco.MujocoRobot(
+            scene.robot_type,
             self._segment_id_robot,
             position=scene.robot.position,
             orientation=scene.robot.orientation,
@@ -136,10 +142,7 @@ class ExtraBallsSet:
         )
 
         # balls frontends
-        self._balls_frontend = self._handle.frontends[self._segment_id_balls_set]
-
-        # robot frontend
-        self._robot_frontend = self._handle.frontends[self._segment_id_robot]
+        self._frontend = self._handle.frontends[self._segment_id_balls_set]
 
     def _get_segment_ids(self, index: ListOrIndex) -> typing.Sequence[str]:
         # convenience method returning all segment ids if index is None,
@@ -193,8 +196,7 @@ class ExtraBallsSet:
 
     def activate_contacts(self, index: ListOrIndex = None) -> None:
         """
-        Contacts will no longer be ignored (if 'deactivate_contacts'
-        has been previously called)
+        Contacts will not be ignored.
         """
         list(map(self._handle.activate_contact, self._get_segment_ids(index)))
 
@@ -211,43 +213,25 @@ class ExtraBallsSet:
         """
         self._trajectory_getter = trajectory_getter
 
-    def get_state(self) -> ExtraBallsState:
+    def get(self) -> ExtraBallsState:
         """
         Returns the current state of this extra balls set
         """
-        # balls observation
-        balls_observation = self._balls_frontend.latest()
-        racket_cartesian = balls_observation.get_extended_state().robot_position
-        contacts = balls_observation.get_extended_state().contacts
-        iteration = balls_observation.get_iteration()
-        time_stamp = balls_observation.get_time_stamp()
-        state = balls_observation.get_observed_states()
+        observation = self._frontend.latest()
+        racket_cartesian = observation.get_extended_state().robot_position
+        contacts = observation.get_extended_state().contacts
+        iteration = observation.get_iteration()
+        time_stamp = observation.get_time_stamp()
+        state = observation.get_observed_states()
         balls = [state.get(index) for index in range(self._size)]
-        ball_positions = []
-        ball_velocities = []
+        positions = []
+        velocities = []
         for b in balls:
-            ball_positions.append(b.get_position())
-            ball_velocities.append(b.get_velocity())
-        # robot observation
-        robot_observation = self._robot_frontend.latest()
+            positions.append(b.get_position())
+            velocities.append(b.get_velocity())
         return ExtraBallsState(
-            ball_positions,
-            ball_velocities,
-            contacts,
-            robot_observation.get_positions(),
-            robot_observation.get_velocities(),
-            racket_cartesian,
-            iteration,
-            time_stamp,
+            positions, velocities, contacts, racket_cartesian, iteration, time_stamp
         )
-
-    def reset(self) -> None:
-        """
-        Do a full simulation reset, i.e. restore the state of the 
-        first simulation step, where all items are set according
-        to the mujoco xml configuration file.
-        """
-        self._handle.reset()
 
     def load_trajectories(self) -> None:
         """
@@ -258,32 +242,21 @@ class ExtraBallsSet:
         called.
         """
         trajectories = self._trajectory_getter.get(self._size)
-        rate = self._trajectory_getter.get_sample_rate()
-        rate_ns = int(rate * 1e9)
-        duration = o80.Duration_us.nanoseconds(rate_ns)
-        item3d = o80.Item3dState()
         # loading one trajectory per ball
         for index_ball, trajectory in enumerate(trajectories):
+            iterator = self._trajectory_getter.iterate(trajectory)
             # going to first trajectory point
-            item3d.set_position(trajectory[0].position)
-            item3d.set_velocity(trajectory[0].velocity)
-            self._balls_frontend.add_command(index_ball, item3d, o80.Mode.OVERWRITE)
+            _, state = next(iterator)
+            self._frontend.add_command(index_ball, state, o80.Mode.OVERWRITE)
             # loading full trajectory
-            for item in trajectory[1:]:
-                item3d.set_position(item.position)
-                item3d.set_velocity(item.velocity)
-                self._balls_frontend.add_command(
-                    index_ball, item3d, duration, o80.Mode.QUEUE
+            for duration_us, state in iterator:
+                self._frontend.add_command(
+                    index_ball,
+                    state,
+                    o80.Duration_us.microseconds(duration_us),
+                    o80.Mode.QUEUE,
                 )
-        self._balls_frontend.pulse()
-
-    def set_robot(self, positions: JointStates, velocities: JointStates) -> None:
-        """
-        Set a command for the o80 backend of the robot. Will not be shared with
-        the backend until the burst method is called.
-        """
-        self._robot_frontend.add_command(positions, velocities, o80.Mode.OVERWRITE)
-        self._robot_frontend.pulse()
+        self._frontend.pulse()
 
     @staticmethod
     def get_mujoco_id(setid: int) -> str:
@@ -291,4 +264,4 @@ class ExtraBallsSet:
         returns the mujoco id corresponding to a
         ball set id
         """
-        return _mujoco_id_prefix_g + str(setid)
+        return "extra_balls_" + str(setid)

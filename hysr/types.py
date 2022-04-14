@@ -1,5 +1,24 @@
 from dataclasses import dataclass
 import typing
+import context
+
+StampedTrajectory = context.ball_trajectories.StampedTrajectory
+""" 
+A tuple which first entry is a sequence of time stamps (in microseconds),
+and the second entry a numpy array which lines are 3d float positions.   
+"""
+
+StampedTrajectories = context.ball_trajectories.StampedTrajectories
+"""
+A sequence of StampedTrajectory.
+"""
+
+DurationPoint = context.ball_trajectories.DurationPoint
+"""
+tuple [time stamp (microseconds), o80.Item3dState],
+o80.Item3dState has set/get_positon() and set/get_velocity
+methods. 
+"""
 
 ListOrIndex = typing.Union[int, typing.Sequence[int]]
 """ For functions accepting either an int or a list of int as arguments"""

@@ -1,13 +1,13 @@
 import typing
-
+import pam_mujoco
 from .defaults import Defaults
 
 
 class Pose:
     """
     Encapsulate a 3d position and an orientation in a format suitable
-    to Mujoco xml model file, i.e. 3d float for position and
-    string for orientation (e.g. '-1 0 0 0 -1 0')
+    to Mujoco xml model file, i.e. 3d float for position and a 3d float for
+    orientation (euler angles).
     """
 
     def __init__(self, position: typing.Sequence[float], orientation: str):
@@ -19,14 +19,16 @@ class Scene:
     """
     Encapsulate all attributes required to fully describe
     an experiment scene (and related mujoco simulation).
-    For the moment: position and orientation of the table
+    For the moment: robot type (pamy1 or pamy2), position and orientation of the table
     and of the robot.
     """
 
-    def __init__(self, robot: Pose, table: Pose):
-
-        self.robot = robot
-        self.table = table
+    def __init__(
+        self, robot_type: pam_mujoco.RobotType, robot_pose: Pose, table_pose: Pose
+    ):
+        self.robot_type = robot_type
+        self.robot = robot_pose
+        self.table = table_pose
 
     @classmethod
     def get_defaults(cls):
@@ -36,6 +38,7 @@ class Scene:
         and of the table.
         """
         return cls(
+            pam_mujoco.RobotType.PAMY2,
             Pose(Defaults.position_robot, Defaults.orientation_robot),
             Pose(Defaults.position_table, Defaults.orientation_table),
         )

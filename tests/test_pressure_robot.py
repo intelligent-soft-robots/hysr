@@ -8,6 +8,7 @@ from hysr import (
 )
 from hysr import Defaults
 from hysr import types
+from hysr import scene
 from . import pam_mujoco_utils
 
 _mujoco_id_g = "test_pressure_robot_mujoco_id"
@@ -20,6 +21,10 @@ def run_pam_mujocos(request, scope="function") -> bool:
     startup: starts a pam_mujoco process 
     cleanup: stops the pam mujoco processes
     """
+
+    print()
+    print("???")
+    print()
 
     process = pam_mujoco_utils.start_pam_mujocos([_mujoco_id_g])
     yield None
@@ -36,9 +41,10 @@ def _test_sim_pressure_robot(accelerated):
     else:
         class_ = SimPressureRobot
     robot = class_(
+        pam_mujoco.RobotType.PAMY2,
         _mujoco_id_g,
         _segment_id_g,
-        Defaults.pam_config["sim"],
+        Defaults.pam_config[pam_mujoco.RobotType.PAMY2]["sim"],
         Defaults.muscle_model,
         graphics,
     )
