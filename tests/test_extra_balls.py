@@ -6,6 +6,8 @@ import pam_mujoco
 from hysr import ExtraBallsSet, Scene, Defaults, ball_trajectories, ParallelBursts
 from . import pam_mujoco_utils
 
+HDF5_DEFAULT_GROUP_G: str = "originals"
+
 
 def _load_line_trajectory(
     extra_balls_sets: typing.Sequence[ExtraBallsSet],
@@ -45,8 +47,11 @@ def run_pam_mujocos(request, scope="function") -> typing.Sequence[ExtraBallsSet]
     graphics = False
     scene = Scene.get_defaults()
     contact = pam_mujoco.ContactTypes.table
+    trajectory_getter = ball_trajectories.RandomRecordedTrajectory(HDF5_DEFAULT_GROUP_G)
     extra_balls = [
-        ExtraBallsSet(setid, nb_balls[setid], graphics, scene, contact)
+        ExtraBallsSet(
+            setid, nb_balls[setid], graphics, scene, trajectory_getter, contact=contact
+        )
         for setid in setids
     ]
     yield extra_balls
@@ -90,7 +95,7 @@ def test_line_trajectory(run_pam_mujocos):
 
     def _check_end_positions(extra_balls: ExtraBallsSet):
         def _check_end_position(position: typing.Tuple[float, float, float]):
-            precision = 0.001
+            precision = 0.002
             assert position[0] == pytest.approx(1.0, abs=precision)
             assert position[1] == pytest.approx(0.0, abs=precision)
             assert position[2] == pytest.approx(3.0, abs=precision)
@@ -118,8 +123,11 @@ def test_contacts(run_pam_mujocos):
     """
 
     # trajectory going through the table
-    start_position = (0.5, 0.5, 1.0)
-    end_position = (0.5, 0.5, -1.0)
+    table_position = Scene.get_defaults().table.position
+    start_position = [tp + 0.5 for tp in table_position]
+    end_position = [tp - 0.5 for tp in table_position]
+    # start_position[2]+=1.0
+    # end_position[2]-=1.0
     duration = 1.0
     sampling_rate = 0.01
 
@@ -169,7 +177,7 @@ def test_contacts(run_pam_mujocos):
     for eb in extra_balls:
         state: ExtraBallsState = eb.get()
         positions = state.positions
-        precision = 0.001
+        precision = 0.005
         for dim in range(3):
             assert positions[0][dim] == pytest.approx(end_position[dim], abs=precision)
         for position in positions[1:]:
@@ -195,7 +203,7 @@ def test_contacts(run_pam_mujocos):
     for eb in extra_balls:
         state: ExtraBallsState = eb.get()
         positions = state.positions
-        precision = 0.001
+        precision = 0.005
         for position in positions:
             for dim in range(3):
                 assert position[dim] == pytest.approx(end_position[dim], abs=precision)

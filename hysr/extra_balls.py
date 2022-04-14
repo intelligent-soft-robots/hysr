@@ -53,10 +53,10 @@ class ExtraBallsSet:
          nb_balls: has to be 3, 10, 20, 50 or 100
          graphics: if the mujoco simulation should run graphics
          scene : position and orientation of the table and robot
-         contact: which contact between the enviromnent and the balls should be
-                  monitored (default: the racket of the robot)
          trajectory_getter: instance of ball_behavior.TrajectoryGetter. Will be used
                             to set the trajectories the balls will be required to follow
+         contact: which contact between the enviromnent and the balls should be
+                  monitored (optional, default: the racket of the robot)
     """
 
     def __init__(
@@ -65,8 +65,8 @@ class ExtraBallsSet:
         nb_balls: AcceptedNbOfBalls,
         graphics: bool,
         scene: Scene,
+        trajectory_getter: TrajectoryGetter,
         contact: pam_mujoco.ContactTypes = pam_mujoco.ContactTypes.racket1,
-        trajectory_getter: TrajectoryGetter = RandomRecordedTrajectory(),
     ):
 
         # not any number of balls is accepted. Checking the
@@ -112,6 +112,7 @@ class ExtraBallsSet:
 
         # configuring the robot
         robot = pam_mujoco.MujocoRobot(
+            scene.robot_type,
             self._segment_id_robot,
             position=scene.robot.position,
             orientation=scene.robot.orientation,
@@ -241,21 +242,20 @@ class ExtraBallsSet:
         called.
         """
         trajectories = self._trajectory_getter.get(self._size)
-        rate = self._trajectory_getter.get_sample_rate()
-        rate_ns = int(rate * 1e9)
-        duration = o80.Duration_us.nanoseconds(rate_ns)
-        item3d = o80.Item3dState()
         # loading one trajectory per ball
         for index_ball, trajectory in enumerate(trajectories):
+            iterator = self._trajectory_getter.iterate(trajectory)
             # going to first trajectory point
-            item3d.set_position(trajectory[0].position)
-            item3d.set_velocity(trajectory[0].velocity)
-            self._frontend.add_command(index_ball, item3d, o80.Mode.OVERWRITE)
+            _, state = next(iterator)
+            self._frontend.add_command(index_ball, state, o80.Mode.OVERWRITE)
             # loading full trajectory
-            for item in trajectory[1:]:
-                item3d.set_position(item.position)
-                item3d.set_velocity(item.velocity)
-                self._frontend.add_command(index_ball, item3d, duration, o80.Mode.QUEUE)
+            for duration_us, state in iterator:
+                self._frontend.add_command(
+                    index_ball,
+                    state,
+                    o80.Duration_us.microseconds(duration_us),
+                    o80.Mode.QUEUE,
+                )
         self._frontend.pulse()
 
     @staticmethod
