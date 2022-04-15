@@ -1,4 +1,5 @@
 import typing
+import o80_pam
 from .scene import Scene
 from .ball_trajectories import TrajectoryGetter
 from .pressure_robot import PressureRobot
@@ -19,7 +20,7 @@ class HysrControl:
         self._pressure_robot = pressure_robot
         self._main_sim = main_sim
         self._extra_balls = extra_balls
-        self._parallel_bursts = ParallelBursts([main_sim] + extra_balls)
+        self._parallel_bursts = ParallelBursts([main_sim] + list(extra_balls))
         self._mujoco_time_step = mujoco_time_step
         self._pressure_robot_time_step = pressure_robot.get_time_step()
 
@@ -42,11 +43,11 @@ class HysrControl:
     def _robot_mirror(self, nb_bursts: int = 1) -> types.PressureRobotState:
         robot_state: types.PressureRobotState = self._pressure_robot.get_state()
         self._main_sim.set_robot(
-            robot_states.joint_positions, robot_states.joint_velocities
+            robot_state.joint_positions, robot_state.joint_velocities
         )
         for extra_balls in self._extra_balls:
             extra_balls.set_robot(
-                robot_states.joint_positions, robot_states.joint_velocities
+                robot_state.joint_positions, robot_state.joint_velocities
             )
         self._parallel_bursts.burst(nb_bursts)
         return robot_state

@@ -57,8 +57,9 @@ class PressureRobot:
         """ (o80) adds the desired pressures, but does not send them to 
         the robot.
         """
-        for dof, (ago, antago) in enumerate(robot_pressures):
-            self._frontend.add_command(dof, ago, antago, o80.Mode.OVERWRITE)
+        agos = [rp[0] for rp in robot_pressures]
+        antagos = [rp[1] for rp in robot_pressures]
+        self._frontend.add_command(agos, antagos, o80.Mode.OVERWRITE)
 
 
 class PamMujocoPressureRobot:
@@ -68,13 +69,14 @@ class PamMujocoPressureRobot:
 
     def __init__(
         self,
-            mujoco_id: str,
-            segment_id: str,
-            pam_config_file: pathlib.Path,
-            pam_model_file: pathlib.Path,
-            graphics: bool,
-            accelerated_time: bool,
-            mujoco_time_step: float,
+        robot_type: pam_mujoco.RobotType,
+        mujoco_id: str,
+        segment_id: str,
+        pam_config_file: pathlib.Path,
+        pam_model_file: pathlib.Path,
+        graphics: bool,
+        accelerated_time: bool,
+        mujoco_time_step: float,
     ):
 
         self._time_step = mujoco_time_step
@@ -85,6 +87,7 @@ class PamMujocoPressureRobot:
             burst_mode = False
 
         robot = pam_mujoco.MujocoRobot(
+            robot_type,
             segment_id,
             control=pam_mujoco.MujocoRobot.PRESSURE_CONTROL,
             json_control_path=str(pam_config_file),
@@ -180,21 +183,25 @@ class SimPressureRobot(PamMujocoPressureRobot, RealTimePressureRobot):
 
     def __init__(
         self,
+        robot_type: pam_mujoco.RobotType,
         mujoco_id: str,
         segment_id: str,
         pam_config_file: pathlib.Path,
         pam_model_file: pathlib.Path,
         graphics: bool,
+        mujoco_time_step: float
     ):
         accelerated_time: bool = False
         PamMujocoPressureRobot.__init__(
             self,
+            robot_type,
             mujoco_id,
             segment_id,
             pam_config_file,
             pam_model_file,
             graphics,
             accelerated_time,
+            mujoco_time_step
         )
         RealTimePressureRobot.__init__(self, self._frontend)
 
@@ -210,21 +217,25 @@ class SimAcceleratedPressureRobot(PamMujocoPressureRobot, PressureRobot):
 
     def __init__(
         self,
+        robot_type: pam_mujoco.RobotType,
         mujoco_id: str,
         segment_id: str,
         pam_config_file: pathlib.Path,
         pam_model_file: pathlib.Path,
         graphics: bool,
+        mujoco_time_step: float
     ):
         accelerated_time = True
         PamMujocoPressureRobot.__init__(
             self,
+            robot_type,
             mujoco_id,
             segment_id,
             pam_config_file,
             pam_model_file,
             graphics,
             accelerated_time,
+            mujoco_time_step
         )
         PressureRobot.__init__(self, self._frontend)
 
@@ -241,7 +252,7 @@ class SimAcceleratedPressureRobot(PamMujocoPressureRobot, PressureRobot):
         self._frontend.pulse()
         self._handle.burst(nb_bursts)
 
-    def pulse() -> None:
+    def pulse(self) -> None:
         """ Raises a NotImplementedError, 
         as accelerated time simulated robot's o80 backend run in
         bursting mode.
