@@ -21,11 +21,6 @@ def run_pam_mujocos(request, scope="function") -> bool:
     startup: starts a pam_mujoco process 
     cleanup: stops the pam mujoco processes
     """
-
-    print()
-    print("???")
-    print()
-
     process = pam_mujoco_utils.start_pam_mujocos([_mujoco_id_g])
     yield None
     pam_mujoco_utils.stop_pam_mujocos()
@@ -47,6 +42,7 @@ def _test_sim_pressure_robot(accelerated):
         Defaults.pam_config[pam_mujoco.RobotType.PAMY2]["sim"],
         Defaults.muscle_model,
         graphics,
+        Defaults.mujoco_time_step
     )
 
     # checking the backend is running
@@ -54,7 +50,7 @@ def _test_sim_pressure_robot(accelerated):
     iteration1 = robot.get_state().iteration
     time_wait = 0.2
     if accelerated:
-        nb_iterations = int(time_wait / Defaults.mujoco_period)
+        nb_iterations = int(time_wait / Defaults.mujoco_time_step)
         robot.burst(nb_iterations)
     else:
         time.sleep(time_wait)

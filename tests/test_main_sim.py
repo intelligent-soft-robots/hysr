@@ -44,9 +44,11 @@ def test_robot(run_pam_mujocos):
     Test the robot is properly controlled
     """
 
+    robot_type = pam_mujoco.RobotType.PAMY2
     graphics = False
     scene = hysr.Scene.get_defaults()
-    main_sim = hysr.MainSim(graphics, scene)
+    trajectory_getter = hysr.Defaults.trajectory_getter
+    main_sim = hysr.MainSim(robot_type,graphics, scene, trajectory_getter)
 
     state_ini: hysr.types.MainSimState = main_sim.get_state()
 
@@ -55,7 +57,7 @@ def test_robot(run_pam_mujocos):
     nb_iter = 20
     delta = 0.005
     target_positions = (0.0, 0.0, 0.0, 0.0)
-    mujoco_period = hysr.Defaults.mujoco_period
+    mujoco_period = hysr.Defaults.mujoco_time_step
     target_velocities = tuple([delta / mujoco_period] * 4)
     final_positions = tuple([delta * nb_iter] * 4)
     for iter in range(nb_iter):
@@ -86,18 +88,19 @@ def test_ball(run_pam_mujocos):
         start_position, end_position, duration, sampling_rate
     )
 
+    robot_type = pam_mujoco.RobotType.PAMY2
     graphics = False
     scene = hysr.Scene.get_defaults()
-    main_sim = hysr.MainSim(graphics, scene, trajectory_getter=trajectory_getter)
+    main_sim = hysr.MainSim(robot_type, graphics, scene, trajectory_getter=trajectory_getter)
 
     main_sim.load_trajectory()
 
-    nb_iterations = int(duration / hysr.Defaults.mujoco_period)
+    nb_iterations = int(duration / hysr.Defaults.mujoco_time_step)
 
     main_sim.burst(nb_iterations)
 
     state: hysr.types.MainSimState = main_sim.get_state()
-    precision = 1e-3
+    precision = 5e-3
     for p1, p2 in zip(end_position, state.ball_position):
         assert p1 == pytest.approx(p2, abs=precision)
 
@@ -110,8 +113,9 @@ def test_contacts(run_pam_mujocos):
 
     # instantiating MainSim
     graphics = False
+    robot_type = pam_mujoco.RobotType.PAMY2
     scene = hysr.Scene.get_defaults()
-    main_sim = hysr.MainSim(graphics, scene)
+    main_sim = hysr.MainSim(robot_type,graphics, scene, hysr.Defaults.trajectory_getter)
 
     # 3d position of the racket
     racket_position = main_sim.get_state().racket_cartesian[0]
@@ -139,7 +143,7 @@ def test_contacts(run_pam_mujocos):
         main_sim.set_trajectory_getter(trajectory_getter)
         main_sim.load_trajectory()
 
-        nb_iterations = int(duration / hysr.Defaults.mujoco_period)
+        nb_iterations = int(duration / hysr.Defaults.mujoco_time_step)
         main_sim.burst(nb_iterations)
 
     # starting state: no contact.

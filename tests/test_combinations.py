@@ -34,42 +34,46 @@ def test_mirroring(run_pam_mujocos):
     """
     Testing that instances of MainSim and ExtraBallsSet can
     successfully mirror the pseudo real robot. Also check
-    balls playing the same trajectories in the main sim and in 
-    the extra balls set remain aligned.
+    that the balls play the same trajectories in the main sim and in 
+    the extra balls.
     """
     
     # instantiating the robot and simulations
+    robot_type = pam_mujoco.RobotType.PAMY2
     graphics = False
     scene = hysr.Scene.get_defaults()
-    main_sim = hysr.MainSim(graphics, scene)
+    trajectory_index = 1
+    trajectory_getter = hysr.ball_trajectories.IndexedRecordedTrajectory(
+        trajectory_index, hysr.Defaults.ball_trajectory_group
+    )
+    main_sim = hysr.MainSim(robot_type, graphics, scene, trajectory_getter)
     setid = 1
     nb_balls = 3
-    extra_balls_set = hysr.ExtraBallsSet(setid, nb_balls, graphics, scene)
+    extra_balls_set = hysr.ExtraBallsSet(setid, nb_balls, graphics, scene, trajectory_getter)
     pressure_robot = hysr.SimAcceleratedPressureRobot(
+        robot_type,
         _pressure_robot_mujoco_id_g,
         _pressure_robot_segment_id_g,
-        hysr.Defaults.pam_config["sim"],
+        hysr.Defaults.pam_config[robot_type]["sim"],
         hysr.Defaults.muscle_model,
         graphics,
+        hysr.Defaults.mujoco_time_step
     )
 
     # for bursting main_sim and extra_balls_set together
     with hysr.ParallelBursts((main_sim, extra_balls_set)) as parallel_bursts:
 
-        # setting main_sim and extra_balls_set
-        # with the same commands regarding
-        # balls motion
-        trajectory_index = 1
-        trajectory_getter = hysr.ball_trajectories.IndexedRecordedTrajectory(
-            trajectory_index
-        )
-        main_sim.set_trajectory_getter(trajectory_getter)
-        extra_balls_set.set_trajectory_getter(trajectory_getter)
-        main_sim.load_trajectory()
-        extra_balls_set.load_trajectories()
+        main_traj_size = main_sim.load_trajectory()
+        extra_traj_sizes = extra_balls_set.load_trajectories()
 
+        # all trajectories are expected to be the same
+        extra_traj_sizes = set(extra_traj_sizes)
+        assert len(extra_traj_sizes) == 1
+        extra_traj_size = extra_traj_sizes.pop()
+        assert extra_traj_size == main_traj_size
+        
         # setting desired pressures to the pseudo real robot
-        target_pressure = 16000
+        target_pressure = 20000
         ago_antago_target_pressures = tuple([target_pressure] * 2)
         target_pressures = tuple([ago_antago_target_pressures] * 4)
         pressure_robot.set_desired_pressures(target_pressures)
@@ -77,8 +81,9 @@ def test_mirroring(run_pam_mujocos):
         # running a few iterations, with the robots of the main sim and
         # of the extra balls sim mirroring the pseudo real robot
         stable = False
-        nb_iterations = 1000
-        for _ in range(nb_iterations):
+        nb_iterations = main_traj_size
+
+        for iter in range(nb_iterations):
             pressure_robot.burst(1)
             robot_state = pressure_robot.get_state()
             main_sim.set_robot(
@@ -87,6 +92,10 @@ def test_mirroring(run_pam_mujocos):
             extra_balls_set.set_robot(
                 robot_state.joint_positions, robot_state.joint_velocities
             )
+
+            main_sim_state = main_sim.get_state()
+            extra_balls_state = extra_balls_set.get_state()
+            
             parallel_bursts.burst(1)
 
         # getting final states of all
@@ -100,33 +109,23 @@ def test_mirroring(run_pam_mujocos):
         assert robot_state.time_stamp == extra_balls_state.time_stamp
         assert robot_state.iteration == extra_balls_state.iteration
 
-        precision = 1e-3
-
+        position_precision = 5e-3
+        
         # checking all robots are aligned
         assert robot_state.joint_positions == pytest.approx(
-            main_sim_state.joint_positions, abs=precision
+            main_sim_state.joint_positions, abs=position_precision
         )
         assert robot_state.joint_positions == pytest.approx(
-            extra_balls_state.joint_positions, abs=precision
-        )
-        assert robot_state.joint_velocities == pytest.approx(
-            main_sim_state.joint_velocities, abs=precision
-        )
-        assert robot_state.joint_velocities == pytest.approx(
-            extra_balls_state.joint_velocities, abs=precision
+            extra_balls_state.joint_positions, abs=position_precision
         )
 
         # checking same positions of the racket
         assert main_sim_state.racket_cartesian[0] == pytest.approx(
-            extra_balls_state.racket_cartesian, abs=precision
+            extra_balls_state.racket_cartesian, abs=position_precision
         )
 
-        # checking all positions / velocities of all the balls
+        # checking all positions of all the balls
         for extra_position in extra_balls_state.ball_positions:
             assert main_sim_state.ball_position == pytest.approx(
-                extra_position, abs=precision
-            )
-        for extra_velocity in extra_balls_state.ball_velocities:
-            assert main_sim_state.ball_velocity == pytest.approx(
-                extra_velocity, abs=precision
+                extra_position, abs=position_precision
             )

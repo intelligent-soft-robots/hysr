@@ -31,14 +31,17 @@ class MainSim:
       For setting the position and orientation of the table and of the robot.
     trajectory_getter:
       Will be used to set trajectories to the ball.
+    contact: (optional)
+      Default to the contact with the robot's racket
     """
 
     def __init__(
         self,
+        robot_type: pam_mujoco.RobotType,
         graphics: bool,
         scene: Scene,
+        trajectory_getter: TrajectoryGetter,
         contact: pam_mujoco.ContactTypes = pam_mujoco.ContactTypes.racket1,
-        trajectory_getter: TrajectoryGetter = RandomRecordedTrajectory(),
     ):
 
         table = pam_mujoco.MujocoTable(
@@ -47,6 +50,7 @@ class MainSim:
             orientation=scene.table.orientation,
         )
         robot = pam_mujoco.MujocoRobot(
+            robot_type,
             _robot_segment_id,
             position=scene.robot.position,
             orientation=scene.robot.orientation,
@@ -93,37 +97,39 @@ class MainSim:
         """
         self._handle.burst(nb_iterations)
 
-    def load_trajectory(self) -> None:
+    def load_trajectory(self) -> int:
         """
         Generate a trajectory using the trajectory_getter (cf constructor)
         and load this trajecty to the mujoco backend. Note that
         as the mujoco backend is running in bursting mode, the trajectory
         will not start playing until the burst method of the handle is
-        called.
+        called. Returns the size of the loaded trajectory.
         """
         trajectory = self._trajectory_getter.get_one()
-        rate = self._trajectory_getter.get_sample_rate()
-        rate_ns = int(rate * 1e9)
-        duration = o80.Duration_us.nanoseconds(rate_ns)
-
+        iterator = context.BallTrajectories.iterate(trajectory)
+        
         # going to first trajectory point
+        _,state = next(iterator)
         self._frontend_ball.add_command(
-            trajectory[0].position, trajectory[0].velocity, o80.Mode.OVERWRITE
+            state.get_position(), state.get_velocity(), o80.Mode.OVERWRITE
         )
         # loading full trajectory
-        for item in trajectory[1:]:
+        for duration,state in iterator:
             self._frontend_ball.add_command(
-                item.position, item.velocity, duration, o80.Mode.QUEUE
+                state.get_position(), state.get_velocity(),
+                o80.Duration_us.microseconds(duration), o80.Mode.QUEUE
             )
         self._frontend_ball.pulse()
 
+        return trajectory[0].shape[0]
+        
     def reset(self) -> None:
         """
         Do a full simulation reset, i.e. restore the state of the 
         first simulation step, where all items are set according
         to the mujoco xml configuration file.
         """
-        self._handle.reset(_ball_segment_id)
+        self._handle.reset()
 
     def get_contact(self) -> context.ContactInformation:
         """

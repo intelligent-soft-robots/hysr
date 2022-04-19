@@ -95,7 +95,7 @@ class IndexedRecordedTrajectory(TrajectoryGetter):
     """
 
     def __init__(self, index: int, group: str, hdf5_path: pathlib.Path = None):
-        with context.RecordedBallTrajectoris(hdf5_path) as rbt:
+        with context.ball_trajectories.RecordedBallTrajectories(hdf5_path) as rbt:
             if not group in rbt.get_groups():
                 raise KeyError(
                     "failed to find the group {} in {}".format(group, hdf5_path)
@@ -123,7 +123,7 @@ class IndexedRecordedTrajectory(TrajectoryGetter):
         """
         Returns a list of trajectories, all idendical.
         """
-        return [self._stamped_trajecotries] * nb_trajectories
+        return [self._stamped_trajectory] * nb_trajectories
 
 
 class RandomRecordedTrajectory(TrajectoryGetter):
