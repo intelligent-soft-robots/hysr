@@ -250,15 +250,17 @@ class ExtraBallsSet:
         """
         self._handle.reset()
 
-    def load_trajectories(self) -> None:
+    def load_trajectories(self) -> typing.Sequence[int]:
         """
         Generate trajectories using the trajectory_getter (cf constructor)
         and load these trajectories to the mujoco backend. Note that
         as the mujoco backend is running in bursting mode, the trajectory
         will not start playing until the burst method of the handle is
-        called.
+        called. Returns the list of the size of the loaded trajectories
         """
         trajectories = self._trajectory_getter.get(self._size)
+        len_trajectories = [traj[0].shape[0] for traj in trajectories]
+        
         # loading one trajectory per ball
         for index_ball, trajectory in enumerate(trajectories):
             iterator = self._trajectory_getter.iterate(trajectory)
@@ -274,6 +276,7 @@ class ExtraBallsSet:
                     o80.Mode.QUEUE,
                 )
         self._balls_frontend.pulse()
+        return len_trajectories
 
     def set_robot(self, positions: JointStates, velocities: JointStates) -> None:
         """

@@ -1,3 +1,4 @@
+import time
 import pytest
 import math
 import pam_interface
@@ -26,30 +27,37 @@ def run_pam_mujocos(request, scope="function") -> None:
     )
     yield None
     pam_mujoco_utils.stop_pam_mujocos()
-    
 
-def test_to_robot_pressures(run_pam_mujocos):
+
+@pytest.mark.parametrize("accelerated", [True,False])    
+def test_to_robot_pressures(run_pam_mujocos,accelerated):
 
     # TODO: update so that it runs both for accelerated and non accelerated robots
+    if accelerated:
+        PressureRobotClass = hysr.SimAcceleratedPressureRobot
+    else:
+        PressureRobotClass = hysr.SimPressureRobot
     
     # instantiating the robot and simulations
     graphics = False
     scene = hysr.Scene.get_defaults()
     robot_type = pam_mujoco.RobotType.PAMY2
     trajectory_getter = hysr.Defaults.trajectory_getter
-    main_sim = hysr.MainSim(robot_type,graphics, scene, trajectory_getter)
+    main_sim = hysr.MainSim(robot_type, graphics, scene, trajectory_getter)
     setid = 1
     nb_balls = 3
-    extra_balls_set = hysr.ExtraBallsSet(setid, nb_balls, graphics, scene, trajectory_getter)
+    extra_balls_set = hysr.ExtraBallsSet(
+        setid, nb_balls, graphics, scene, trajectory_getter
+    )
     robot_config_path = hysr.Defaults.pam_config[robot_type]["sim"]
-    pressure_robot = hysr.SimAcceleratedPressureRobot(
+    pressure_robot = PressureRobotClass(
         robot_type,
         _pressure_robot_mujoco_id_g,
         _pressure_robot_segment_id_g,
         robot_config_path,
         hysr.Defaults.muscle_model,
         graphics,
-        hysr.Defaults.mujoco_time_step
+        hysr.Defaults.mujoco_time_step,
     )
 
     # setting up the time steps duration
@@ -57,40 +65,41 @@ def test_to_robot_pressures(run_pam_mujocos):
 
     # "grouping" all simulations into an instance
     # of hysr control
-    hysr_control = hysr.HysrControl(
-        pressure_robot,
-        main_sim,
-        (extra_balls_set,),
-        mujoco_time_step
-    )
+    with hysr.HysrControl(
+        pressure_robot, main_sim, (extra_balls_set,), mujoco_time_step
+    ) as hysr_control:
 
-    # moving all robots to a set of pressures
-    config = pam_interface.JsonConfiguration(str(robot_config_path))
-    min_pressures = [config.min_pressure(dof,pam_interface.sign.agonist) for dof in range(4)]
-    max_pressures = [config.max_pressure(dof,pam_interface.sign.antagonist) for dof in range(4)]
-    robot_pressures = [(minp,maxp) for minp,maxp in zip(min_pressures,max_pressures)]
-    nb_mujoco_iterations = 200
-    hysr_control.to_robot_pressures(robot_pressures,nb_mujoco_iterations)
+        # moving all robots to a set of pressures
+        config = pam_interface.JsonConfiguration(str(robot_config_path))
+        min_pressures = [
+            config.min_pressure(dof, pam_interface.sign.agonist) for dof in range(4)
+        ]
+        max_pressures = [
+            config.max_pressure(dof, pam_interface.sign.antagonist) for dof in range(4)
+        ]
+        robot_pressures = [
+            (minp, maxp) for minp, maxp in zip(min_pressures, max_pressures)
+        ]
+        nb_mujoco_iterations = 200
+        hysr_control.to_robot_pressures(robot_pressures, nb_mujoco_iterations)
+        
+        # states of all robots and simulations
+        states: hysr.types.States = hysr_control.get_states()
 
-    # states of all robots and simulations
-    states : hysr.types.States = hysr_control.get_states()
+        # is the pressure controlled robot to the correct pressures ?
+        for dof, joint_pressures in enumerate(states.pressure_robot.observed_pressures):
+            assert joint_pressures[0] == pytest.approx(min_pressures[dof], abs=100)
+            assert joint_pressures[1] == pytest.approx(max_pressures[dof], abs=100)
+        for dof, joint_pressures in enumerate(states.pressure_robot.desired_pressures):
+            assert joint_pressures[0] == min_pressures[dof]
+            assert joint_pressures[1] == max_pressures[dof]
 
-    print("\nobserved: {} | desired: {}".format(states.pressure_robot.observed_pressures,states.pressure_robot.desired_pressures))
-    
-    # is the pressure controlled robot to the correct pressures ?
-    for dof,joint_pressures in enumerate(states.pressure_robot.observed_pressures):
-        assert joint_pressures[0]==pytest.approx(min_pressures[dof],abs=100)
-        assert joint_pressures[1]==pytest.approx(max_pressures[dof],abs=100)
-    for dof,joint_pressures in enumerate(states.pressure_robot.desired_pressures):
-        assert joint_pressures[0]==min_pressures[dof]
-        assert joint_pressures[1]==max_pressures[dof]
-
-    # are all the robot in the same positions ?
-    for pref,p1,p2 in zip(
+        # are all the robot in the same positions ?
+        for pref, p1, p2 in zip(
             states.pressure_robot.joint_positions,
             states.main_sim.joint_positions,
-            states.extra_balls[0].joint_positions
-    ):
-        assert pref==pytest.approx(p1,abs=0.01)
-        assert pref==pytest.approx(p2,abs=0.01)
-    
+            states.extra_balls[0].joint_positions,
+        ):
+            print("****",accelerated,pref,p1,p2)
+            assert pref == pytest.approx(p1, abs=0.01)
+            assert pref == pytest.approx(p2, abs=0.01)

@@ -24,6 +24,18 @@ class HysrControl:
         self._mujoco_time_step = mujoco_time_step
         self._pressure_robot_time_step = pressure_robot.get_time_step()
 
+    def stop(self):
+        self._parallel_bursts.stop()
+
+    def __del__(self):
+        self.stop()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.stop()
+        
     def load_trajectories(self) -> None:
         self._main_sim.load_trajectory()
         for extra_ball in self._extra_balls:
@@ -51,6 +63,24 @@ class HysrControl:
             )
         self._parallel_bursts.burst(nb_bursts)
         return robot_state
+
+    def to_robot_pressures(
+        self, pressures: types.RobotPressures, nb_mujoco_steps: int
+    ) -> None:
+
+        self._pressure_robot.set_desired_pressures(pressures)
+        try:
+            # only for non accelerated pressure robot
+            self._pressure_robot.pulse()
+        except NotImplementedError:
+            pass
+        for step in range(nb_mujoco_steps):
+            self._robot_mirror()
+            try:
+                # only for accelerated pressure robot
+                self._pressure_robot.burst(1)
+            except NotImplementedError:
+                pass
 
     def align_robots(self, bursts_per_step: int = 10):
         def _one_step(arg: types.Tuple[float, float]) -> types.Tuple[bool, float]:
@@ -86,26 +116,10 @@ class HysrControl:
                 extra_ball.set_robot(positions, velocities)
             self._parallel_bursts.burst(bursts_per_step)
 
-    def to_robot_pressures(
-        self, pressures: types.RobotPressures, nb_mujoco_steps: int
-    ) -> None:
-
-        self._pressure_robot.set_desired_pressures(pressures)
-        try:
-            self._pressure_robot.pulse()
-        except NotImplementedError:
-            pass
-        for step in range(nb_mujoco_steps):
-            self._robot_mirror()
-            try:
-                self._pressure_robot.burst(1)
-            except NotImplementedError:
-                pass
-
     def to_robot_position(
         self,
         position: types.JointStates,
-        position_controller_factory: o80_pam.PositionControllerFactory,
+        position_controller_factory: o80_pam.position_control.PositionControllerFactory,
     ):
         def _divisable(label1: str, v1: float, label2: str, v2: float) -> int:
             if v1 % v2 == 0:
@@ -172,7 +186,7 @@ class HysrControl:
     def natural_reset(
         self,
         starting_posture: types.JointStates,
-        position_controller_factory: o80_pam.PositionControllerFactory,
+        position_controller_factory: o80_pam.position_control.PositionControllerFactory,
     ) -> None:
         """
         Move the robots to the starting posture (desired position for each

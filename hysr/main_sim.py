@@ -97,13 +97,13 @@ class MainSim:
         """
         self._handle.burst(nb_iterations)
 
-    def load_trajectory(self) -> None:
+    def load_trajectory(self) -> int:
         """
         Generate a trajectory using the trajectory_getter (cf constructor)
         and load this trajecty to the mujoco backend. Note that
         as the mujoco backend is running in bursting mode, the trajectory
         will not start playing until the burst method of the handle is
-        called.
+        called. Returns the size of the loaded trajectory.
         """
         trajectory = self._trajectory_getter.get_one()
         iterator = context.BallTrajectories.iterate(trajectory)
@@ -121,6 +121,8 @@ class MainSim:
             )
         self._frontend_ball.pulse()
 
+        return trajectory[0].shape[0]
+        
     def reset(self) -> None:
         """
         Do a full simulation reset, i.e. restore the state of the 

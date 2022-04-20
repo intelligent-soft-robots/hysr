@@ -119,7 +119,7 @@ class ParallelBursts:
         """
         Stopping all threads
         """
-        if self._size > 1:
+        if self._size > 1 and self._running:
             self._running = False
             for thread in self._threads:
                 thread.join()
