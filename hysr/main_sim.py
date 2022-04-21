@@ -107,22 +107,24 @@ class MainSim:
         """
         trajectory = self._trajectory_getter.get_one()
         iterator = context.BallTrajectories.iterate(trajectory)
-        
+
         # going to first trajectory point
-        _,state = next(iterator)
+        _, state = next(iterator)
         self._frontend_ball.add_command(
             state.get_position(), state.get_velocity(), o80.Mode.OVERWRITE
         )
         # loading full trajectory
-        for duration,state in iterator:
+        for duration, state in iterator:
             self._frontend_ball.add_command(
-                state.get_position(), state.get_velocity(),
-                o80.Duration_us.microseconds(duration), o80.Mode.QUEUE
+                state.get_position(),
+                state.get_velocity(),
+                o80.Duration_us.microseconds(duration),
+                o80.Mode.QUEUE,
             )
         self._frontend_ball.pulse()
 
         return trajectory[0].shape[0]
-        
+
     def reset(self) -> None:
         """
         Do a full simulation reset, i.e. restore the state of the 

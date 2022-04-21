@@ -260,7 +260,7 @@ class ExtraBallsSet:
         """
         trajectories = self._trajectory_getter.get(self._size)
         len_trajectories = [traj[0].shape[0] for traj in trajectories]
-        
+
         # loading one trajectory per ball
         for index_ball, trajectory in enumerate(trajectories):
             iterator = self._trajectory_getter.iterate(trajectory)
@@ -285,7 +285,6 @@ class ExtraBallsSet:
         """
         self._robot_frontend.add_command(positions, velocities, o80.Mode.OVERWRITE)
         self._robot_frontend.pulse()
-
 
     @staticmethod
     def get_mujoco_id(setid: int) -> str:

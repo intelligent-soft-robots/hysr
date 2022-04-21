@@ -149,7 +149,7 @@ def test_contacts(run_pam_mujocos):
         contacts: typing.Sequence[context.ContactInformation] = eb.get_contacts()
         # checking the test starts with no contact detected
         assert all([not c.contact_occured for c in contacts[1:]])
-    
+
     # loading the test trajectory
     nb_bursts: int = _load_line_trajectory(
         extra_balls, start_position, end_position, duration, sampling_rate
@@ -162,9 +162,12 @@ def test_contacts(run_pam_mujocos):
         item3d = o80.Item3dState()
         item3d.set_position(start_position)
         item3d.set_velocity((0.0, 0.0, 0.0))
-        eb._balls_frontend.add_command(index_ball, item3d,
-                                       o80.Duration_us.seconds(int(duration)),
-                                       o80.Mode.OVERWRITE)
+        eb._balls_frontend.add_command(
+            index_ball,
+            item3d,
+            o80.Duration_us.seconds(int(duration)),
+            o80.Mode.OVERWRITE,
+        )
         eb._balls_frontend.pulse()
 
     # running the trajectory
@@ -247,10 +250,12 @@ def test_random_trajectories(run_pam_mujocos):
             assert not p1 == p2
 
     # sanity check: when the trajectories are expected to be the same
-    trajectory_getter = hysr.IndexedRecordedTrajectory(0,hysr.Defaults.ball_trajectory_group)
+    trajectory_getter = hysr.IndexedRecordedTrajectory(
+        0, hysr.Defaults.ball_trajectory_group
+    )
     extra_balls.set_trajectory_getter(trajectory_getter)
     traj_sizes = extra_balls.load_trajectories()
-    assert len(set(traj_sizes))==1
+    assert len(set(traj_sizes)) == 1
     extra_balls.burst(traj_sizes[0])
     state: hysr.types.ExtraBallsSet = extra_balls.get_state()
     for index, p1 in enumerate(state.ball_positions):

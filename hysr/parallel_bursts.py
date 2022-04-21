@@ -1,11 +1,14 @@
 import time, threading, typing, pam_mujoco
 from .extra_balls import ExtraBallsSet
 from .main_sim import MainSim
+from .pressure_robot import SimAcceleratedPressureRobot
 
-# both MujocoHandle, MainSim and ExtraBallsSet provide a burst method
-# (the ones of MainSim and ExtraBallsSet calls the burst method of its private
+# MujocoHandle, SimAcceleratedPressureRobot, MainSim and ExtraBallsSet provide a burst method
+# (the ones of SimAcceleratedPressureRobot, MainSim and ExtraBallsSet call the burst method of its private
 #  (mujoco) handle attribute)
-BURSTER = typing.Union[pam_mujoco.MujocoHandle, ExtraBallsSet, MainSim]
+Burster = typing.Union[
+    pam_mujoco.MujocoHandle, SimAcceleratedPressureRobot, ExtraBallsSet, MainSim
+]
 
 
 class ParallelBursts:
@@ -24,7 +27,7 @@ class ParallelBursts:
       wait duration (in second) of the thread loops
     """
 
-    def __init__(self, handles: typing.Sequence[BURSTER], wait: float = 0.0001):
+    def __init__(self, handles: typing.Sequence[Burster], wait: float = 0.0001):
 
         self._handles = handles
         self._size = len(handles)

@@ -48,7 +48,7 @@ def test_robot(run_pam_mujocos):
     graphics = False
     scene = hysr.Scene.get_defaults()
     trajectory_getter = hysr.Defaults.trajectory_getter
-    main_sim = hysr.MainSim(robot_type,graphics, scene, trajectory_getter)
+    main_sim = hysr.MainSim(robot_type, graphics, scene, trajectory_getter)
 
     state_ini: hysr.types.MainSimState = main_sim.get_state()
 
@@ -91,7 +91,9 @@ def test_ball(run_pam_mujocos):
     robot_type = pam_mujoco.RobotType.PAMY2
     graphics = False
     scene = hysr.Scene.get_defaults()
-    main_sim = hysr.MainSim(robot_type, graphics, scene, trajectory_getter=trajectory_getter)
+    main_sim = hysr.MainSim(
+        robot_type, graphics, scene, trajectory_getter=trajectory_getter
+    )
 
     main_sim.load_trajectory()
 
@@ -115,7 +117,9 @@ def test_contacts(run_pam_mujocos):
     graphics = False
     robot_type = pam_mujoco.RobotType.PAMY2
     scene = hysr.Scene.get_defaults()
-    main_sim = hysr.MainSim(robot_type,graphics, scene, hysr.Defaults.trajectory_getter)
+    main_sim = hysr.MainSim(
+        robot_type, graphics, scene, hysr.Defaults.trajectory_getter
+    )
 
     # 3d position of the racket
     racket_position = main_sim.get_state().racket_cartesian[0]
