@@ -55,7 +55,7 @@ class _FrequencyController:
             )
 
         self._active: bool = not accelerated_time
-        self._mujoco_steps_per_algo_step = int(algorithm_time_step / mujoco_time_step)
+        self._mujoco_steps_per_algo_step = round(algorithm_time_step / mujoco_time_step)
 
         if self._active:
             self._frequency = 1.0 / algorithm_time_step
