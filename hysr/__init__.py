@@ -17,3 +17,4 @@ from .ball_trajectories import (
     IndexedRecordedTrajectory,
     RandomRecordedTrajectory,
 )
+from .hysr_control import HysrControl

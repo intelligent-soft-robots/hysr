@@ -42,7 +42,7 @@ def _test_sim_pressure_robot(accelerated):
         Defaults.pam_config[pam_mujoco.RobotType.PAMY2]["sim"],
         Defaults.muscle_model,
         graphics,
-        Defaults.mujoco_time_step
+        Defaults.mujoco_time_step,
     )
 
     # checking the backend is running
@@ -67,10 +67,9 @@ def _test_sim_pressure_robot(accelerated):
         (15004, 15001),
     )
     robot.set_desired_pressures(set_pressures)
+    robot.pulse()
     if accelerated:
         robot.burst(1)
-    else:
-        robot.pulse()
     time.sleep(0.1)
     get_pressures: types.RobotPressures = robot.get_state().desired_pressures
     assert set_pressures == get_pressures

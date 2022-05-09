@@ -107,22 +107,24 @@ class MainSim:
         """
         trajectory = self._trajectory_getter.get_one()
         iterator = context.BallTrajectories.iterate(trajectory)
-        
+
         # going to first trajectory point
-        _,state = next(iterator)
+        _, state = next(iterator)
         self._frontend_ball.add_command(
             state.get_position(), state.get_velocity(), o80.Mode.OVERWRITE
         )
         # loading full trajectory
-        for duration,state in iterator:
+        for duration, state in iterator:
             self._frontend_ball.add_command(
-                state.get_position(), state.get_velocity(),
-                o80.Duration_us.microseconds(duration), o80.Mode.QUEUE
+                state.get_position(),
+                state.get_velocity(),
+                o80.Duration_us.microseconds(duration),
+                o80.Mode.QUEUE,
             )
         self._frontend_ball.pulse()
 
         return trajectory[0].shape[0]
-        
+
     def reset(self) -> None:
         """
         Do a full simulation reset, i.e. restore the state of the 
@@ -131,7 +133,7 @@ class MainSim:
         """
         self._handle.reset()
 
-    def get_contact(self) -> context.ContactInformation:
+    def _get_contact(self) -> context.ContactInformation:
         """
         Return the contact information between the ball and the racket.
         The returned instance has the attributes:
@@ -195,6 +197,7 @@ class MainSim:
             robot_obs.get_positions(),
             robot_obs.get_velocities(),
             cartesian,
+            self._get_contact(),
             robot_obs.get_iteration(),
             robot_obs.get_time_stamp(),
         )

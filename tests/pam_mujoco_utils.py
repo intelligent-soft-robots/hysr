@@ -3,6 +3,7 @@ import typing
 import subprocess
 import shared_memory
 
+
 def start_pam_mujocos(mujoco_ids: typing.Sequence[str]):
     """
     disconnect the shared memory to existing segments related
@@ -23,4 +24,3 @@ def stop_pam_mujocos():
     command = ["pam_mujoco_stop_all"]
     subprocess.Popen(command, stdout=None, stderr=None)
     time.sleep(0.5)
-

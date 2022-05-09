@@ -14,14 +14,14 @@ class PressureRobot:
     def __init__(self, frontend: o80_pam.FrontEnd):
         self._frontend = frontend
 
-    def get_time_step(self)->float:
+    def get_time_step(self) -> float:
         """ Returns the control iteration period of the robot,
         for simulated robots, should be the same as the
         mujoco period. For real, it should be the 
         o80 control frequency
         """
         raise NotImplementedError()
-        
+
     def is_accelerated_time(self) -> bool:
         """ Returns True if the instance controls
         a robot running in (simulated) accelerated time.
@@ -104,15 +104,14 @@ class PamMujocoPressureRobot:
         )
         self._frontend: o80_pam.FrontEnd = self._handle.frontends[segment_id]
 
-    def get_time_step(self)->float:
+    def get_time_step(self) -> float:
         """
         Returns the time step (control period) of the simulated robot,
         in seconds
         """
         return self._time_step
-        
-        
-    def reset(self)->None:
+
+    def reset(self) -> None:
         """
         Do a full simulation reset, i.e. restore the state of the 
         first simulation step, where all items are set according
@@ -168,10 +167,10 @@ class RealRobot(RealTimePressureRobot):
             )
         super().__init__(frontend)
 
-    def get_time_step(self)->float:
-        frequency : float = self._frontend.get_frequency()
-        return 1.0/frequency
-        
+    def get_time_step(self) -> float:
+        frequency: float = self._frontend.get_frequency()
+        return 1.0 / frequency
+
     def is_accelerated_time(self) -> bool:
         return False
 
@@ -189,7 +188,7 @@ class SimPressureRobot(PamMujocoPressureRobot, RealTimePressureRobot):
         pam_config_file: pathlib.Path,
         pam_model_file: pathlib.Path,
         graphics: bool,
-        mujoco_time_step: float
+        mujoco_time_step: float,
     ):
         accelerated_time: bool = False
         PamMujocoPressureRobot.__init__(
@@ -201,7 +200,7 @@ class SimPressureRobot(PamMujocoPressureRobot, RealTimePressureRobot):
             pam_model_file,
             graphics,
             accelerated_time,
-            mujoco_time_step
+            mujoco_time_step,
         )
         RealTimePressureRobot.__init__(self, self._frontend)
 
@@ -223,7 +222,7 @@ class SimAcceleratedPressureRobot(PamMujocoPressureRobot, PressureRobot):
         pam_config_file: pathlib.Path,
         pam_model_file: pathlib.Path,
         graphics: bool,
-        mujoco_time_step: float
+        mujoco_time_step: float,
     ):
         accelerated_time = True
         PamMujocoPressureRobot.__init__(
@@ -235,7 +234,7 @@ class SimAcceleratedPressureRobot(PamMujocoPressureRobot, PressureRobot):
             pam_model_file,
             graphics,
             accelerated_time,
-            mujoco_time_step
+            mujoco_time_step,
         )
         PressureRobot.__init__(self, self._frontend)
 
@@ -243,21 +242,14 @@ class SimAcceleratedPressureRobot(PamMujocoPressureRobot, PressureRobot):
         return True
 
     def burst(self, nb_bursts: int) -> None:
-        """ Has the frontend pulsing, i.e. sharing the 
-        commands that have been set via the set_desired_pressures
-        method (of the PressureRobot superclass), if any. Then
-        the handle bursts, i.e. triggers the related pam_mujoco
+        """ Triggers the related pam_mujoco
         instance run (nb_bursts) iterations.
         """
-        self._frontend.pulse()
         self._handle.burst(nb_bursts)
 
     def pulse(self) -> None:
-        """ Raises a NotImplementedError, 
-        as accelerated time simulated robot's o80 backend run in
-        bursting mode.
+        """ Share the queue of commmands with the robot.
+        (but does not trigger the execution of any simulation 
+        step, see the burst method)
         """
-        raise NotImplementedError(
-            "Accelerated time simulated robots do not have a pulse method, use "
-            "burst instead"
-        )
+        self._frontend.pulse()

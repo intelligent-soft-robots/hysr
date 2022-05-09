@@ -1,10 +1,11 @@
 import typing, pathlib, inspect
 import context, pam_models, pam_interface, pam_mujoco
-
+from .ball_trajectories import RandomRecordedTrajectory
 
 # a group in the default HDF5 file hosting
 # the pre-recorded trajectories
 _BALL_TRAJECTORY_GROUP = "originals"
+
 
 def _get_default(f: typing.Callable[..., typing.Any], arg_name: str) -> typing.Any:
     # e.g.
@@ -32,6 +33,9 @@ class Defaults:
     # mujoco
     mujoco_time_step: float = 0.002  # seconds
 
+    # learning algorithm
+    algorithm_time_step: float = 0.01  # seconds
+
     # pam robot config file
     pam_config: typing.Dict[pam_mujoco.RobotType, typing.Dict["str", pathlib.Path]] = {}
 
@@ -51,7 +55,7 @@ class Defaults:
     # several pre-recorded ball trajectory group may be hosted by the
     # HDF5 file
     ball_trajectory_group = _BALL_TRAJECTORY_GROUP
-    
+
     # ball trajectory getter, defaults to pre-recorded ball trajectories
     # selected randomly
-    trajectory_getter = context.BallTrajectories(_BALL_TRAJECTORY_GROUP)
+    trajectory_getter = RandomRecordedTrajectory(_BALL_TRAJECTORY_GROUP)

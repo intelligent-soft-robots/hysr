@@ -48,7 +48,7 @@ def test_robot(run_pam_mujocos):
     graphics = False
     scene = hysr.Scene.get_defaults()
     trajectory_getter = hysr.Defaults.trajectory_getter
-    main_sim = hysr.MainSim(robot_type,graphics, scene, trajectory_getter)
+    main_sim = hysr.MainSim(robot_type, graphics, scene, trajectory_getter)
 
     state_ini: hysr.types.MainSimState = main_sim.get_state()
 
@@ -91,7 +91,9 @@ def test_ball(run_pam_mujocos):
     robot_type = pam_mujoco.RobotType.PAMY2
     graphics = False
     scene = hysr.Scene.get_defaults()
-    main_sim = hysr.MainSim(robot_type, graphics, scene, trajectory_getter=trajectory_getter)
+    main_sim = hysr.MainSim(
+        robot_type, graphics, scene, trajectory_getter=trajectory_getter
+    )
 
     main_sim.load_trajectory()
 
@@ -115,7 +117,9 @@ def test_contacts(run_pam_mujocos):
     graphics = False
     robot_type = pam_mujoco.RobotType.PAMY2
     scene = hysr.Scene.get_defaults()
-    main_sim = hysr.MainSim(robot_type,graphics, scene, hysr.Defaults.trajectory_getter)
+    main_sim = hysr.MainSim(
+        robot_type, graphics, scene, hysr.Defaults.trajectory_getter
+    )
 
     # 3d position of the racket
     racket_position = main_sim.get_state().racket_cartesian[0]
@@ -147,13 +151,13 @@ def test_contacts(run_pam_mujocos):
         main_sim.burst(nb_iterations)
 
     # starting state: no contact.
-    contact = main_sim.get_contact()
+    contact = main_sim.get_state().contact
     assert not contact.contact_occured
 
     # contact detected when playing a
     # trajectory going through the racket.
     _play_contact_trajectory()
-    contact = main_sim.get_contact()
+    contact = main_sim.get_state().contact
     assert contact.contact_occured
 
     # because there has been a contact and
@@ -162,14 +166,14 @@ def test_contacts(run_pam_mujocos):
     # remained unchanged.
     time_stamp = contact.time_stamp
     _play_contact_trajectory()
-    contact = main_sim.get_contact()
+    contact = main_sim.get_state().contact
     assert contact.time_stamp == time_stamp
 
     # replaying the trajectory after reset,
     # new contact should be detected.
     main_sim.reset_contact()
     _play_contact_trajectory()
-    contact = main_sim.get_contact()
+    contact = main_sim.get_state().contact
     assert contact.contact_occured
     assert not contact.time_stamp == time_stamp
 
@@ -179,6 +183,6 @@ def test_contacts(run_pam_mujocos):
     main_sim.reset_contact()
     delta_z = 0.5
     _play_contact_trajectory(delta_z=delta_z)
-    contact = main_sim.get_contact()
+    contact = main_sim.get_state().contact
     assert not contact.contact_occured
     assert contact.minimal_distance == pytest.approx(delta_z, abs=1e-3)
