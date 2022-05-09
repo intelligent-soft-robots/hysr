@@ -133,7 +133,7 @@ class MainSim:
         """
         self._handle.reset()
 
-    def get_contact(self) -> context.ContactInformation:
+    def _get_contact(self) -> context.ContactInformation:
         """
         Return the contact information between the ball and the racket.
         The returned instance has the attributes:
@@ -197,6 +197,7 @@ class MainSim:
             robot_obs.get_positions(),
             robot_obs.get_velocities(),
             cartesian,
+            self._get_contact(),
             robot_obs.get_iteration(),
             robot_obs.get_time_stamp(),
         )

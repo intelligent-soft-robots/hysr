@@ -167,7 +167,9 @@ def test_stepping(run_pam_mujocos, hysr_control_instance):
 
 
 def test_ball_trajectories(run_pam_mujocos, hysr_control_instance):
-
+    """
+    Checking loading trajectories do not raise exceptions
+    """
     hysr_control = hysr_control_instance
     hysr_control.load_trajectories()
 
@@ -221,3 +223,7 @@ def test_instant_reset(run_pam_mujocos, hysr_control_instance):
     )
     for eb1, eb2 in zip(reset_states.extra_balls, initial_states.extra_balls):
         assert eb1.joint_positions != pytest.approx(eb2.joint_positions, 0.01)
+
+
+    
+    

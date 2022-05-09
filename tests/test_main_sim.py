@@ -151,13 +151,13 @@ def test_contacts(run_pam_mujocos):
         main_sim.burst(nb_iterations)
 
     # starting state: no contact.
-    contact = main_sim.get_contact()
+    contact = main_sim.get_state().contact
     assert not contact.contact_occured
 
     # contact detected when playing a
     # trajectory going through the racket.
     _play_contact_trajectory()
-    contact = main_sim.get_contact()
+    contact = main_sim.get_state().contact
     assert contact.contact_occured
 
     # because there has been a contact and
@@ -166,14 +166,14 @@ def test_contacts(run_pam_mujocos):
     # remained unchanged.
     time_stamp = contact.time_stamp
     _play_contact_trajectory()
-    contact = main_sim.get_contact()
+    contact = main_sim.get_state().contact
     assert contact.time_stamp == time_stamp
 
     # replaying the trajectory after reset,
     # new contact should be detected.
     main_sim.reset_contact()
     _play_contact_trajectory()
-    contact = main_sim.get_contact()
+    contact = main_sim.get_state().contact
     assert contact.contact_occured
     assert not contact.time_stamp == time_stamp
 
@@ -183,6 +183,6 @@ def test_contacts(run_pam_mujocos):
     main_sim.reset_contact()
     delta_z = 0.5
     _play_contact_trajectory(delta_z=delta_z)
-    contact = main_sim.get_contact()
+    contact = main_sim.get_state().contact
     assert not contact.contact_occured
     assert contact.minimal_distance == pytest.approx(delta_z, abs=1e-3)
