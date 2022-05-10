@@ -18,3 +18,4 @@ from .ball_trajectories import (
     RandomRecordedTrajectory,
 )
 from .hysr_control import HysrControl
+from . import rewards
