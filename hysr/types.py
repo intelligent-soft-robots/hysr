@@ -68,7 +68,7 @@ class MainSimState:
       position of the ball
     ball_velocity: 3d float
       velocity of the ball
-    joint_positions: 
+    joint_positions:
        tuple of joint positions of the robot, in radian
     joint_velocities:
        tuple of joint velocities of the robot, in radian per seconds
@@ -84,9 +84,9 @@ class MainSimState:
         o80 (i.e. the load method of this class will have no effect for the
         corresponding ball), but by mujoco engine (until the method
         reset_contacts of this class is called)
-    iteration: 
+    iteration:
       iteration of the mujoco simulation
-    time_stamp: 
+    time_stamp:
       time stamp of the mujoco simulation (nanoseconds)
     """
 
@@ -109,12 +109,12 @@ class ExtraBallsState:
     ----------
     ball_positions: list of 3d positions
       positions of the balls
-    ball_velocities: list of 3d positions 
+    ball_velocities: list of 3d positions
       velocities of the balls
     contacts: bool
-       if True, the corresponding ball had a 
+       if True, the corresponding ball had a
        contact with the racket since the last call to reset
-    joint_positions: 
+    joint_positions:
        tuple of joint positions of the robot, in radian
     joint_velocities:
        tuple of joint velocities of the robot, in radian per seconds
@@ -138,11 +138,11 @@ class ExtraBallsState:
 
 @dataclass
 class PressureRobotState:
-    """ Snapshot state of a pressure controlled robot
+    """Snapshot state of a pressure controlled robot
 
     Attributes
     ----------
-    positions: 
+    positions:
       for each joint, in radian
     velocities:
       for each joint, in radian per second
@@ -152,7 +152,7 @@ class PressureRobotState:
       for each joint, agonist and antagonist pressures
     iteration:
       iteration of the backend
-    time_stamp: 
+    time_stamp:
       time_stamp of the backend, in nanoseconds
     """
 
@@ -170,8 +170,8 @@ class PressureRobotState:
 
 @dataclass
 class States:
-    """ Snapshot states of a full HYSR setup,
-    i.e. state of the pressure robot, of the 
+    """Snapshot states of a full HYSR setup,
+    i.e. state of the pressure robot, of the
     main simulation and of the extra balls.
 
     Attributes
@@ -187,3 +187,20 @@ class States:
     pressure_robot: PressureRobotState
     main_sim: MainSimState
     extra_balls: typing.Sequence[ExtraBallsState]
+
+
+StatesHistory = typing.Sequence[States]
+"""
+Sequence of instances of States
+"""
+
+RewardFunction = typing.Callable[[float, float, float], float]
+"""
+Function computing a reward corresponding to how
+well a ball did in the context of table tennis. 
+If the ball did not have a contact with the racket,
+then min_distance_ball_target and max_ball_velocity 
+are expected to be None. If the ball had a contact with
+the racket, min_distance_ball_target is expected to be 
+None. 
+"""
