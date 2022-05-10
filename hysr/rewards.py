@@ -1,22 +1,23 @@
 import math
-from .types import *
+import typing
+from . import types
 
 
-def _norm(vector: Point3D):
+def _norm(vector: types.Point3D) -> float:
     """
     Returns the norm of the vector
     """
     return math.sqrt(sum([v**2 for v in vector]))
 
 
-def _distance(p1: Point3D, p2: Point3D):
+def _distance(p1: types.Point3D, p2: types.Point3D) -> float:
     """
     Returns the distance between p1 and p2
     """
     return math.sqrt(sum([(a - b) ** 2 for a, b in zip(p1, p2)]))
 
 
-def _min_distance(t1: typing.Sequence[Point3D], t2: typing.Sequence[Point3D]):
+def _min_distance(t1: typing.Sequence[types.Point3D], t2: typing.Sequence[types.Point3D]) -> float:
     """
     Returns the minimal distance between points in
     t1 and t2 that are at the same index
@@ -24,17 +25,27 @@ def _min_distance(t1: typing.Sequence[Point3D], t2: typing.Sequence[Point3D]):
     return min([_distance(p1, p2) for p1, p2 in zip(t1, t2)])
 
 
-def _no_hit_reward(min_distance_ball_racket):
+def _no_hit_reward(min_distance_ball_racket: float) -> float:
+    # used for rewards for which the ball did
+    # not touch the racket
     return -min_distance_ball_racket
 
 
-def _return_task_reward(min_distance_ball_target, c, rtt_cap):
+def _return_task_reward(
+    min_distance_ball_target: float, c: float, rtt_cap: float
+) -> float:
+    # used for rewards for which the ball did
+    # touch the racket
     reward = 1.0 - ((min_distance_ball_target / c) ** 0.75)
     reward = max(reward, rtt_cap)
     return reward
 
 
-def _smash_task_reward(min_distance_ball_target, max_ball_velocity, c, rtt_cap):
+def _smash_task_reward(
+    min_distance_ball_target: float, max_ball_velocity: float, c: float, rtt_cap: float
+) -> float:
+    # used for rewards for which the ball did
+    # touch the racket, with smashing objective
     reward = 1.0 - ((min_distance_ball_target / c) ** 0.75)
     reward = reward * max_ball_velocity
     reward = max(reward, rtt_cap)
@@ -42,13 +53,15 @@ def _smash_task_reward(min_distance_ball_target, max_ball_velocity, c, rtt_cap):
 
 
 def _compute_reward(
-    smash,
-    min_distance_ball_racket,
-    min_distance_ball_target,
-    max_ball_velocity,
-    c,
-    rtt_cap,
-):
+    smash: bool,
+    min_distance_ball_racket: float,
+    min_distance_ball_target: float,
+    max_ball_velocity: float,
+    c: float,
+    rtt_cap: float,
+) -> float:
+    # common code for computing both the
+    # basic and smash reward
 
     # i.e. the ball did not hit the racket,
     # so computing a reward based on the minimum
@@ -110,7 +123,11 @@ def basic_reward(
 
 
 def smash_reward(
-    min_distance_ball_racket, min_distance_ball_target, max_ball_velocity, c, rtt_cap
+    min_distance_ball_racket: float,
+    min_distance_ball_target: float,
+    max_ball_velocity: float,
+    c: float,
+    rtt_cap: float,
 ):
     """
     Similar to basic_reward, except that the max_ball_velocity
@@ -128,12 +145,12 @@ def smash_reward(
 
 
 def compute_reward(
-    reward_function: RewardFunction,
-    target: Point3D,
-    ball_positions: typing.Sequence[Point3D],
-    ball_velocities: typing.Sequence[Point3D],
+    reward_function: types.RewardFunction,
+    target: types.Point3D,
+    ball_positions: typing.Sequence[types.Point3D],
+    ball_velocities: typing.Sequence[types.Point3D],
     contacts: typing.Sequence[bool],
-    racket_cartesians: typing.Sequence[Point3D],
+    racket_cartesians: typing.Sequence[types.Point3D],
     c: float,
     rtt_cap: float,
 ) -> float:
@@ -172,7 +189,7 @@ def compute_reward(
 
 
 def compute_rewards(
-    reward_function: RewardFunction, target: Point3D, states_history: StatesHistory
+    reward_function: types.RewardFunction, target: types.Point3D, states_history: types.StatesHistory
 ) -> typing.Union[
     float,  # if no extra balls
     typing.Tuple[float, typing.Sequence[float]],  # if extra balls
@@ -212,11 +229,11 @@ def compute_rewards(
 
     # reward for all extra balls
     def _extra_ball_reward(
-        reward_function: RewardFunction,
-        target: Point3D,
+        reward_function: types.RewardFunction,
+        target: types.Point3D,
         index: int,
         extra_balls_history: typing.Sequence[ExtraBallsState],
-        racket_cartesians: typing.Sequence[Point3D],
+        racket_cartesians: typing.Sequence[types.Point3D],
     ):
         ball_positions = [eb.ball_positions[index] for eb in extra_balls_history]
         ball_velocities = [eb.ball_velocities[index] for eb in extra_balls_history]
