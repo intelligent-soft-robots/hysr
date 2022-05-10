@@ -21,9 +21,9 @@ class ParallelBursts:
 
     Arguments
     ---------
-    handles: 
+    handles:
       list of handles (or of instances of other classes providing a burst method)
-    wait: 
+    wait:
       wait duration (in second) of the thread loops
     """
 

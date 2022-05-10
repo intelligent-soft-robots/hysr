@@ -34,7 +34,7 @@ def _load_line_trajectory(
 @pytest.fixture
 def run_pam_mujocos(request, scope="function") -> typing.Sequence[ExtraBallsSet]:
     """
-    request.param is a list of n integers corresponding to the 
+    request.param is a list of n integers corresponding to the
     number of extra balls to be holded by each of n corresponding pam_mujoco processes.
     startup: starts n pam_mujoco processes and instanciate n instances
              of ExtraBallsSet, each with the number of balls. The extra balls will
@@ -118,8 +118,8 @@ def test_line_trajectory(run_pam_mujocos):
 def test_contacts(run_pam_mujocos):
     """
     check contacts are reported.
-    Extra balls, except for the first one of each set, 
-    are requested to take a line trajectory that goes through the table. 
+    Extra balls, except for the first one of each set,
+    are requested to take a line trajectory that goes through the table.
     They should all report contact, except for the first one
     """
 

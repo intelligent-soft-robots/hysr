@@ -15,8 +15,8 @@ class _FrequencyController:
     """
     Helper for running HysrControl at the correct frequency, i.e.
     respecting the algorithm time step, if the pressure robot does
-    not run in accelerated mode (if the pressure robot runs in accelerated mode, 
-    the wait method has not effect). Also computes the number of bursts the 
+    not run in accelerated mode (if the pressure robot runs in accelerated mode,
+    the wait method has not effect). Also computes the number of bursts the
     simulations have to perform per algorithm step in order to be kept aligned
     with the pressure robot.
 
@@ -78,7 +78,7 @@ class _FrequencyController:
 
     def reset(self) -> None:
         """
-        Reset the wait method, i.e. the time stamp of the previous call to the 
+        Reset the wait method, i.e. the time stamp of the previous call to the
         wait method is replaced by the current time.
         """
         if self._active:
@@ -98,11 +98,11 @@ class HysrControl:
     Arguments
     ---------
     pressure_robot:
-      the interface to the pressure controlled robot, either real ("real robot") 
+      the interface to the pressure controlled robot, either real ("real robot")
       or simulated ("pseudo-real robot"), and if simulated, either real or accelerated time
     main_sim:
       the interface to the simulation managing the virtual ball playing the pre-recorded
-      ball trajectories, and of the position controlled robot that should mirror the 
+      ball trajectories, and of the position controlled robot that should mirror the
       the real or pseudo-real robot.
     extra_balls:
       the interfaces to the simulation managing extra balls, also playing pre-recorded
@@ -111,8 +111,8 @@ class HysrControl:
       the time step of the mujoco simulation hosting the pressure robot (if simulated),
       the main simulation and the extra balls simulations. In seconds.
     algorithm_time_step:
-      the time step of the learning algorithm used to set input pressures to the real or 
-      pseudo real robot. The step method will advance the simulations and sleep the amount of time 
+      the time step of the learning algorithm used to set input pressures to the real or
+      pseudo real robot. The step method will advance the simulations and sleep the amount of time
       required to keep the corresponding frequency. In seconds.
     """
 
@@ -186,7 +186,7 @@ class HysrControl:
         playing their trajectory and mujoco physic engines apply to them).
         A call to this method restore the control of the ball (i.e. call to
         the load_trajectories method has an effect). Also, the contacts information
-        between the balls and the racket is reset to False. 
+        between the balls and the racket is reset to False.
         """
         self._main_sim.reset_contact()
         for extra_balls in self._extra_balls:
@@ -218,7 +218,7 @@ class HysrControl:
 
     def set_desired_pressures(self, desired_pressures: types.RobotPressures) -> None:
         """
-        Set the desired pressure of the real or pseudo real robot. 
+        Set the desired pressure of the real or pseudo real robot.
         """
         self._pressure_robot.set_desired_pressures(desired_pressures)
         self._pressure_robot.pulse()
@@ -256,7 +256,7 @@ class HysrControl:
 
     def enforce_algo_frequency(self):
         """
-        Wait the time required such that two successive call to this 
+        Wait the time required such that two successive call to this
         function enforce the desired algorithm time step
         """
         self._frequency_controller.wait()
@@ -271,7 +271,7 @@ class HysrControl:
         """
         Aligns the position/velocity of the simulated robots
         with the real / pseudo-real robot. Using the "set_mirroring_state" method
-        could destabilize the mujoco simulations if the difference of position between 
+        could destabilize the mujoco simulations if the difference of position between
         the real and the simulated robots is too high. This method aligns the robots
         over several mujoco steps in order to avoid this issue.
         """
@@ -318,7 +318,7 @@ class HysrControl:
 
     def instant_reset(self) -> None:
         """
-        Do a full simulation reset, i.e. restore the state of the 
+        Do a full simulation reset, i.e. restore the state of the
         first simulation step, where all items are set according
         to the mujoco xml configuration file.
         """

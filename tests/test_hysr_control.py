@@ -14,10 +14,10 @@ _pressure_robot_segment_id_g = "tests_pressure_robot_sid"
 @pytest.fixture
 def run_pam_mujocos(request, scope="function") -> None:
     """
-    Spawns a three pam_mujocos with mujoco_id suitable for 
+    Spawns a three pam_mujocos with mujoco_id suitable for
     an instance of MainSim, an instance of ExtraBallsSet
     and an instance of PamMujocoPressureRobot.
-    startup: starts the pam_mujoco processes 
+    startup: starts the pam_mujoco processes
     cleanup: stops the pam mujoco processes
     """
     main_sim_mujoco_id = hysr.MainSim.get_mujoco_id()
@@ -223,7 +223,3 @@ def test_instant_reset(run_pam_mujocos, hysr_control_instance):
     )
     for eb1, eb2 in zip(reset_states.extra_balls, initial_states.extra_balls):
         assert eb1.joint_positions != pytest.approx(eb2.joint_positions, 0.01)
-
-
-    
-    

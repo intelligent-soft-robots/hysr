@@ -37,19 +37,19 @@ class ExtraBallsSet:
 
     Arguments
     ---------
-    setid: 
+    setid:
       id of the extra ball set (arbitrary, but must be different of all sets).
-    nb_balls: 
+    nb_balls:
       has to be 3, 10, 20, 50 or 100.
-    graphics: 
+    graphics:
       if the mujoco simulation should run graphics.
-    scene: 
+    scene:
       position and orientation of the table and robot.
     contact:
       which contact between the enviromnent and the balls should be.
     monitored:
       optional, default: the racket of the robot.
-    trajectory_getter: 
+    trajectory_getter:
       will be used to set the trajectories the balls
       will be required to follow
     """
@@ -244,7 +244,7 @@ class ExtraBallsSet:
 
     def reset(self) -> None:
         """
-        Do a full simulation reset, i.e. restore the state of the 
+        Do a full simulation reset, i.e. restore the state of the
         first simulation step, where all items are set according
         to the mujoco xml configuration file.
         """

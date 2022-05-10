@@ -27,10 +27,10 @@ class TrajectoryGetter:
 
     @staticmethod
     def iterate(
-        input: StampedTrajectory
+        input: StampedTrajectory,
     ) -> typing.Generator[DurationPoint, None, None]:
         """
-        Generator over the trajectory. 
+        Generator over the trajectory.
         Yields tuples (duration in microseconds, state), state having
         a position and a velocity attribute.
         """
@@ -115,7 +115,7 @@ class IndexedRecordedTrajectory(TrajectoryGetter):
 
     def get_one(self) -> StampedTrajectory:
         """
-        Returns a trajectory 
+        Returns a trajectory
         """
         return self._stamped_trajectory
 
@@ -142,7 +142,7 @@ class RandomRecordedTrajectory(TrajectoryGetter):
 
     def get_one(self) -> StampedTrajectory:
         """
-        Returns a trajectory 
+        Returns a trajectory
         """
         return self._ball_trajectories.random_trajectory()
 

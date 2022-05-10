@@ -6,7 +6,7 @@ from .types import RobotPressures, JointPressures, JointStates, PressureRobotSta
 
 class PressureRobot:
 
-    """ Superclass for all pressure controlled robot, subclasses being
+    """Superclass for all pressure controlled robot, subclasses being
     the real pam robot and (normal time and accelerated time) pam_mujoco
     simulated pressure controlled robots.
     """
@@ -15,25 +15,25 @@ class PressureRobot:
         self._frontend = frontend
 
     def get_time_step(self) -> float:
-        """ Returns the control iteration period of the robot,
+        """Returns the control iteration period of the robot,
         for simulated robots, should be the same as the
-        mujoco period. For real, it should be the 
+        mujoco period. For real, it should be the
         o80 control frequency
         """
         raise NotImplementedError()
 
     def is_accelerated_time(self) -> bool:
-        """ Returns True if the instance controls
+        """Returns True if the instance controls
         a robot running in (simulated) accelerated time.
-        Value will be different based on the 
+        Value will be different based on the
         subclass of PressureRobot that is implementing
         the method.
         """
         raise NotImplementedError()
 
     def reset(self) -> None:
-        """ 
-        Do a full simulation reset, i.e. restore the state of the 
+        """
+        Do a full simulation reset, i.e. restore the state of the
         first simulation step, where all items are set according
         to the mujoco xml configuration file.
         For the real robot: raise a NotImplementedError
@@ -41,8 +41,7 @@ class PressureRobot:
         raise NotImplementedError()
 
     def get_state(self) -> PressureRobotState:
-        """ Returns the current state of the robot
-        """
+        """Returns the current state of the robot"""
         obs = self._frontend.latest()
         state = PressureRobotState()
         state.desired_pressures = tuple(obs.get_desired_pressures())
@@ -54,7 +53,7 @@ class PressureRobot:
         return state
 
     def set_desired_pressures(self, robot_pressures: RobotPressures) -> None:
-        """ (o80) adds the desired pressures, but does not send them to 
+        """(o80) adds the desired pressures, but does not send them to
         the robot.
         """
         agos = [rp[0] for rp in robot_pressures]
@@ -63,8 +62,8 @@ class PressureRobot:
 
 
 class PamMujocoPressureRobot:
-    """ Superclass for controlling a pam_mujoco simulated pressure controlled
-    robot. Subclasses will be either "normal" time simulated robot, or 
+    """Superclass for controlling a pam_mujoco simulated pressure controlled
+    robot. Subclasses will be either "normal" time simulated robot, or
     accelerated time simulated robot."""
 
     def __init__(
@@ -113,7 +112,7 @@ class PamMujocoPressureRobot:
 
     def reset(self) -> None:
         """
-        Do a full simulation reset, i.e. restore the state of the 
+        Do a full simulation reset, i.e. restore the state of the
         first simulation step, where all items are set according
         to the mujoco xml configuration file.
         """
@@ -122,7 +121,7 @@ class PamMujocoPressureRobot:
 
 class RealTimePressureRobot(PressureRobot):
 
-    """ Superclass for real time pressure robot, which 
+    """Superclass for real time pressure robot, which
     subclass can be mujoco simulated robot or the real
     pam robot.
     """
@@ -134,14 +133,14 @@ class RealTimePressureRobot(PressureRobot):
         return False
 
     def pulse(self) -> None:
-        """ Has the frontend pulsing, i.e. sharing the 
+        """Has the frontend pulsing, i.e. sharing the
         commands that have been set via the set_desired_pressures
         method (of the PressureRobot superclass), if any.
         """
         self._frontend.pulse()
 
     def burst(self, nb_burst: int) -> None:
-        """ Raise a NotImplementedError, as o80 backend of the real time
+        """Raise a NotImplementedError, as o80 backend of the real time
         robots (real or simulated) are not running in bursting mode.
         """
         raise NotImplementedError(
@@ -152,8 +151,7 @@ class RealTimePressureRobot(PressureRobot):
 
 class RealRobot(RealTimePressureRobot):
 
-    """ For controlling the real robot 
-    """
+    """For controlling the real robot"""
 
     def __init__(self, segment_id: str):
         try:
@@ -177,8 +175,8 @@ class RealRobot(RealTimePressureRobot):
 
 class SimPressureRobot(PamMujocoPressureRobot, RealTimePressureRobot):
 
-    """ For controlling a pam_mujoco simulated robot
-    running in "normal" time (as opposed to accelerated time) """
+    """For controlling a pam_mujoco simulated robot
+    running in "normal" time (as opposed to accelerated time)"""
 
     def __init__(
         self,
@@ -210,7 +208,7 @@ class SimPressureRobot(PamMujocoPressureRobot, RealTimePressureRobot):
 
 class SimAcceleratedPressureRobot(PamMujocoPressureRobot, PressureRobot):
 
-    """ For controlling a pam_mujoco pressure controlled
+    """For controlling a pam_mujoco pressure controlled
     pam robot running in accelerated time.
     """
 
@@ -242,14 +240,14 @@ class SimAcceleratedPressureRobot(PamMujocoPressureRobot, PressureRobot):
         return True
 
     def burst(self, nb_bursts: int) -> None:
-        """ Triggers the related pam_mujoco
+        """Triggers the related pam_mujoco
         instance run (nb_bursts) iterations.
         """
         self._handle.burst(nb_bursts)
 
     def pulse(self) -> None:
-        """ Share the queue of commmands with the robot.
-        (but does not trigger the execution of any simulation 
+        """Share the queue of commmands with the robot.
+        (but does not trigger the execution of any simulation
         step, see the burst method)
         """
         self._frontend.pulse()

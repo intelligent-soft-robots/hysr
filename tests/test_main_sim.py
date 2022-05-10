@@ -11,9 +11,9 @@ from . import pam_mujoco_utils
 @pytest.fixture
 def run_pam_mujocos(request, scope="function") -> None:
     """
-    Spawns a pam_mujoco with mujoco_id suitable for 
+    Spawns a pam_mujoco with mujoco_id suitable for
     an instance of MainSim.
-    startup: starts a pam_mujoco process 
+    startup: starts a pam_mujoco process
     cleanup: stops the pam mujoco processes
     """
     mujoco_id = hysr.MainSim.get_mujoco_id()
@@ -25,9 +25,9 @@ def run_pam_mujocos(request, scope="function") -> None:
 @pytest.fixture
 def run_2_pam_mujocos(request, scope="function") -> None:
     """
-    Spawns a pam_mujoco with mujoco_id suitable for 
+    Spawns a pam_mujoco with mujoco_id suitable for
     an instance of MainSim.
-    startup: starts a pam_mujoco process 
+    startup: starts a pam_mujoco process
     cleanup: stops the pam mujoco processes
     """
     main_sim_mujoco_id = hysr.MainSim.get_mujoco_id()

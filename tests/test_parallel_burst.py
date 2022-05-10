@@ -51,7 +51,7 @@ def run_pam_mujocos(request) -> typing.Generator[pam_mujoco.MujocoHandle, None, 
 @pytest.mark.parametrize("run_pam_mujocos", [["m1", "m2", "m3"]], indirect=True)
 def test_parallel_bursts(run_pam_mujocos):
     """
-    check the all backends bursts in parallel when 
+    check the all backends bursts in parallel when
     using ParallelBursts
     """
     handles = run_pam_mujocos

@@ -21,7 +21,7 @@ class MainSim:
     """
     Code for managing the (joint controlled) robot, the ball, the hit point
     and the goal of a pam simulation. A instance of MainSim will configure
-    pam mujoco to run in accelerated time. 
+    pam mujoco to run in accelerated time.
 
     Arguments
     ---------
@@ -127,7 +127,7 @@ class MainSim:
 
     def reset(self) -> None:
         """
-        Do a full simulation reset, i.e. restore the state of the 
+        Do a full simulation reset, i.e. restore the state of the
         first simulation step, where all items are set according
         to the mujoco xml configuration file.
         """
@@ -168,14 +168,14 @@ class MainSim:
     def reset_contact(self) -> None:
         """
         Reset the contact between the ball and the racket,
-        i.e. past contacts will be 'forgotten' and the 
+        i.e. past contacts will be 'forgotten' and the
         o80 backend regains control of the ball.
         """
         self._handle.reset_contact(_ball_segment_id)
 
     def get_state(self) -> types.MainSimState:
         """
-        Returns the current state of the simulation. """
+        Returns the current state of the simulation."""
         # ball observation
         ball_obs = self._frontend_ball.latest()
         ball = ball_obs.get_observed_states()
@@ -206,7 +206,7 @@ class MainSim:
         self, positions: types.JointStates, velocities: types.JointStates
     ) -> None:
         """
-        Set a command for the o80 backend of the robot. 
+        Set a command for the o80 backend of the robot.
         """
         self._frontend_robot.add_command(positions, velocities, o80.Mode.OVERWRITE)
         self._frontend_robot.pulse()

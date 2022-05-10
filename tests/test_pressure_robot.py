@@ -18,7 +18,7 @@ _segment_id_g = "test_pressure_robot_segment_id"
 @pytest.fixture
 def run_pam_mujocos(request, scope="function") -> bool:
     """
-    startup: starts a pam_mujoco process 
+    startup: starts a pam_mujoco process
     cleanup: stops the pam mujoco processes
     """
     process = pam_mujoco_utils.start_pam_mujocos([_mujoco_id_g])
@@ -76,16 +76,14 @@ def _test_sim_pressure_robot(accelerated):
 
 
 def test_normal_time_sim_pressure_robot(run_pam_mujocos):
-    """ Test mujoco simulated control (not accelerated time)
-    """
+    """Test mujoco simulated control (not accelerated time)"""
 
     accelerated = False
     _test_sim_pressure_robot(accelerated)
 
 
 def test_accelerated_time_sim_pressure_robot(run_pam_mujocos):
-    """ Test mujoco simulated control (accelerated time)
-    """
+    """Test mujoco simulated control (accelerated time)"""
 
     accelerated = True
     _test_sim_pressure_robot(accelerated)

@@ -17,7 +17,9 @@ def _distance(p1: types.Point3D, p2: types.Point3D) -> float:
     return math.sqrt(sum([(a - b) ** 2 for a, b in zip(p1, p2)]))
 
 
-def _min_distance(t1: typing.Sequence[types.Point3D], t2: typing.Sequence[types.Point3D]) -> float:
+def _min_distance(
+    t1: typing.Sequence[types.Point3D], t2: typing.Sequence[types.Point3D]
+) -> float:
     """
     Returns the minimal distance between points in
     t1 and t2 that are at the same index
@@ -189,7 +191,9 @@ def compute_reward(
 
 
 def compute_rewards(
-    reward_function: types.RewardFunction, target: types.Point3D, states_history: types.StatesHistory
+    reward_function: types.RewardFunction,
+    target: types.Point3D,
+    states_history: types.StatesHistory,
 ) -> typing.Union[
     float,  # if no extra balls
     typing.Tuple[float, typing.Sequence[float]],  # if extra balls
