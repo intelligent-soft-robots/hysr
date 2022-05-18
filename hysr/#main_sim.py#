@@ -1,4 +1,3 @@
-import typing
 import o80
 import pam_mujoco
 import context
@@ -182,11 +181,11 @@ class MainSim:
         ball_obs = self._frontend_ball.latest()
         ball = ball_obs.get_observed_states()
         ball_position = typing.cast(
-            hysr_types.Point3D, tuple([ball.get(2 * dim).get() for dim in range(3)])
+            hysr_types.Point3D,
+            tuple([ball.get(2 * dim).get() for dim in range(3)])
         )
-        ball_velocity = typing.cast(
-            hysr_types.Point3D, tuple([ball.get(2 * dim + 1).get() for dim in range(3)])
-        )
+# type: ignore
+        ball_velocity = tuple([ball.get(2 * dim + 1).get() for dim in range(3)])  # type: ignore
         # robot observation
         robot_obs = self._frontend_robot.latest()
         cartesian = (

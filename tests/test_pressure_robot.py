@@ -1,14 +1,13 @@
-import time, typing, pytest
-import o80, o80_pam, pam_mujoco
+import time
+import typing
+import pytest
+import pam_mujoco
 from hysr import (
-    PressureRobotState,
-    RealRobot,
     SimPressureRobot,
     SimAcceleratedPressureRobot,
 )
 from hysr import Defaults
-from hysr import types
-from hysr import scene
+from hysr import hysr_types
 from . import pam_mujoco_utils
 
 _mujoco_id_g = "test_pressure_robot_mujoco_id"
@@ -16,12 +15,12 @@ _segment_id_g = "test_pressure_robot_segment_id"
 
 
 @pytest.fixture
-def run_pam_mujocos(request, scope="function") -> bool:
+def run_pam_mujocos(request, scope="function") -> typing.Generator[None, None, None]:
     """
     startup: starts a pam_mujoco process
     cleanup: stops the pam mujoco processes
     """
-    process = pam_mujoco_utils.start_pam_mujocos([_mujoco_id_g])
+    pam_mujoco_utils.start_pam_mujocos([_mujoco_id_g])
     yield None
     pam_mujoco_utils.stop_pam_mujocos()
 
@@ -60,7 +59,7 @@ def _test_sim_pressure_robot(accelerated):
     assert iteration2 > iteration1
 
     # checking one can set desired pressures
-    set_pressures: types.RobotPressures = (
+    set_pressures: hysr_types.RobotPressures = (
         (15001, 15004),
         (15002, 15003),
         (15003, 15002),
@@ -71,7 +70,7 @@ def _test_sim_pressure_robot(accelerated):
     if accelerated:
         robot.burst(1)
     time.sleep(0.1)
-    get_pressures: types.RobotPressures = robot.get_state().desired_pressures
+    get_pressures: hysr_types.RobotPressures = robot.get_state().desired_pressures
     assert set_pressures == get_pressures
 
 

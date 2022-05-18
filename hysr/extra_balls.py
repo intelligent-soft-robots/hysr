@@ -1,19 +1,19 @@
 import typing
 
 # imports from pam_mujoco colcon space
-import o80, context, pam_mujoco
+import o80
+import context
+import pam_mujoco
 
 # imports from hysr
-from .types import (
+from .hysr_types import (
     ListOrIndex,
     AcceptedNbOfBalls,
-    Point3D,
-    ExtraBall,
     ExtraBallsState,
     JointStates,
 )
 from .scene import Scene
-from .ball_trajectories import TrajectoryGetter, RandomRecordedTrajectory
+from .ball_trajectories import TrajectoryGetter
 
 # the underlying c++ controller does not accept any number of
 # extra balls per pam_mujoco processes (because each
@@ -142,15 +142,15 @@ class ExtraBallsSet:
         # robot frontend
         self._robot_frontend = self._handle.frontends[self._segment_id_robot]
 
-    def _get_segment_ids(self, index: ListOrIndex) -> typing.Sequence[str]:
+    def _get_segment_ids(self, index: ListOrIndex) -> typing.List[str]:
         # convenience method returning all segment ids if index is None,
         # and a list of segment ids otherwise (of len 1 if index is an int)
         def _get_int_list(i: ListOrIndex, max_index) -> typing.Sequence[int]:
             if isinstance(i, int):
                 r = [i]
             else:
-                r = i
-            if any([i_ >= max_index for i_ in i]):
+                r = i  # type: ignore
+            if any([i_ >= max_index for i_ in r]):
                 raise IndexError()
             return r
 
@@ -167,7 +167,7 @@ class ExtraBallsSet:
 
     def get_contacts(
         self, index: ListOrIndex = None
-    ) -> typing.Sequence[context.ContactInformation]:
+    ) -> typing.List[context.ContactInformation]:
         """
         Returns the list contact informations between the balls and the contact
         object (see argument "contact" of the constructor), i.e. an object with

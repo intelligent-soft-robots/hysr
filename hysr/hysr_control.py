@@ -2,13 +2,11 @@ import typing
 import functools
 import o80
 import o80_pam
-from .scene import Scene
-from .ball_trajectories import TrajectoryGetter
 from .pressure_robot import PressureRobot
 from .main_sim import MainSim
 from .extra_balls import ExtraBallsSet
-from .parallel_bursts import ParallelBursts
-from . import types
+from .parallel_bursts import Burster, ParallelBursts
+from . import hysr_types
 
 
 class _FrequencyController:
@@ -130,15 +128,21 @@ class HysrControl:
 
         self._accelerated_time = self._pressure_robot.is_accelerated_time()
 
+        bursters: typing.List[Burster]
+        l1: typing.List[Burster]
+        l2: typing.List[Burster]
         if self._accelerated_time:
-            self._parallel_bursts = ParallelBursts(
-                [pressure_robot, main_sim] + list(extra_balls)
-            )
+            l1 = [pressure_robot, main_sim]
+            l2 = list(extra_balls)
+            bursters = l1 + l2
         else:
-            self._parallel_bursts = ParallelBursts([main_sim] + list(extra_balls))
+            l1 = [main_sim]
+            l2 = list(extra_balls)
+            bursters = l1 + l2
+        self._parallel_bursts = ParallelBursts(bursters)
 
         self._mujoco_time_step = mujoco_time_step
-        self._algorith_time_step = algorithm_time_step
+        self._algorithm_time_step = algorithm_time_step
 
         self._frequency_controller = _FrequencyController(
             pressure_robot.is_accelerated_time(), mujoco_time_step, algorithm_time_step
@@ -190,16 +194,16 @@ class HysrControl:
         """
         self._main_sim.reset_contact()
         for extra_balls in self._extra_balls:
-            extra_ball.reset_contacts()
+            extra_balls.reset_contacts()
 
-    def get_states(self) -> types.States:
+    def get_states(self) -> hysr_types.States:
         """
         Returns the current states of all balls and robots.
         """
         pressure_robot = self._pressure_robot.get_state()
         main_sim = self._main_sim.get_state()
         extra_balls = [extra_ball.get_state() for extra_ball in self._extra_balls]
-        return types.States(pressure_robot, main_sim, extra_balls)
+        return hysr_types.States(pressure_robot, main_sim, extra_balls)
 
     def set_mirroring_state(self) -> None:
         """
@@ -207,7 +211,7 @@ class HysrControl:
         extra balls simulation to the observed position of the real (or pseudo-real)
         robot. This will have no effect until the "step" method is called.
         """
-        robot_state: types.PressureRobotState = self._pressure_robot.get_state()
+        robot_state: hysr_types.PressureRobotState = self._pressure_robot.get_state()
         self._main_sim.set_robot(
             robot_state.joint_positions, robot_state.joint_velocities
         )
@@ -216,14 +220,16 @@ class HysrControl:
                 robot_state.joint_positions, robot_state.joint_velocities
             )
 
-    def set_desired_pressures(self, desired_pressures: types.RobotPressures) -> None:
+    def set_desired_pressures(
+        self, desired_pressures: hysr_types.RobotPressures
+    ) -> None:
         """
         Set the desired pressure of the real or pseudo real robot.
         """
         self._pressure_robot.set_desired_pressures(desired_pressures)
         self._pressure_robot.pulse()
 
-    def step(self, desired_pressures: types.RobotPressures) -> types.States:
+    def step(self, desired_pressures: hysr_types.RobotPressures) -> hysr_types.States:
         """
         Perform, in this order:
         1- read the joint positions and velocities from the real/pseudo-real robot
@@ -233,10 +239,10 @@ class HysrControl:
           (step 1) to the main and extra ball simulation
         5- Burst all simulations (only main sim and extra balls if the real/pseudo-real
            robot is running in real time, otherwise also the pseudo-real robot)
-        6- returns the state (hysr.types.States) as read in step 1 and 2
+        6- returns the state (hysr.hysr_types.States) as read in step 1 and 2
         """
         # step 1 and 2
-        states: types.States = self.get_states()
+        states: hysr_types.States = self.get_states()
         # step 3
         self.set_desired_pressures(desired_pressures)
         # step 4
@@ -304,17 +310,56 @@ class HysrControl:
             velocities = client_state.joint_velocities
             p = list(map(_one_joint_step, zip(target_positions, positions)))
             v = list(map(_one_joint_step, zip(target_velocities, velocities)))
-            positions = [p_[1] for p_ in p]
-            velocities = [v_[1] for v_ in v]
+            positions = typing.cast(hysr_types.JointStates, tuple([p_[1] for p_ in p]))
+            velocities = typing.cast(hysr_types.JointStates, [v_[1] for v_ in v])
             over = [p_[0] for p_ in p]
             client.set_robot(positions, velocities)
             return all(over)
 
         _one_step_p = functools.partial(_one_step, self._pressure_robot, precision)
-        over = [False]
+        over: typing.List[bool] = [False]
         while not all(over):
-            over = list(map(_one_step_p, [self._main_sim] + list(self._extra_balls)))
+            l1: typing.List[typing.Union[MainSim, ExtraBallsSet]] = [self._main_sim]
+            l2: typing.List[typing.Union[MainSim, ExtraBallsSet]] = list(
+                self._extra_balls
+            )
+            over = list(map(_one_step_p, l1 + l2))
             self._parallel_bursts.burst(bursts_per_step)
+
+    def to_robot_position(
+        self,
+        target_posture: hysr_types.JointStates,
+        controller_factory: o80_pam.position_control.PositionControllerFactory,
+    ) -> None:
+        """Uses a position controller to bring the pseudo-real robot (and the
+        simulated robots which mirror it) to the specified target posture.
+        Position control for pneumatic muscles actuated robots are tricky, so
+        not guaranteed to give proper results.
+        The frequency of the controller must be the same than the frequency
+        at which the algorithm runs (to keep the robots aligned), a ValueError
+        error is raised otherwise.
+        """
+        self.align_robots()
+        current_posture = self._pressure_robot.get_state().joint_positions
+        controller = controller_factory.get(current_posture, target_posture)
+        controller_time_step = controller.get_time_step()
+        if controller_time_step != self._algorithm_time_step:
+            raise ValueError(
+                "hysr_control.to_robot_position: "
+                "the position controller must run at "
+                "the same perio than the algorithm "
+                "({} != {})".format(controller_time_step, self._algorithm_time_step)
+            )
+        if not self._accelerated_time:
+            frequency_manager = o80.FrequencyManager(1.0 / self._algorithm_time_step)
+        while controller.has_next():
+            state = self._pressure_robot.get_state()
+            posture = state.joint_positions
+            velocity = state.joint_velocities
+            pressures = controller.next(posture, velocity)
+            self.step(pressures)
+            if not self._accelerated_time:
+                frequency_manager.wait()
 
     def instant_reset(self) -> None:
         """
@@ -330,7 +375,7 @@ class HysrControl:
 
     def natural_reset(
         self,
-        starting_posture: types.JointStates,
+        starting_posture: hysr_types.JointStates,
         position_controller_factory: o80_pam.position_control.PositionControllerFactory,
     ) -> None:
         """

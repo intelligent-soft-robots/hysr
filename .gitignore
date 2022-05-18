@@ -1,2 +1,4 @@
+.mypy_cache
+hysr.egg-info
 *~
 *.pyc

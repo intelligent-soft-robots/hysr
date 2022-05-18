@@ -1,4 +1,8 @@
-__version__ = "0.0.0.1"
+# flake8: noqa
+
+import importlib.metadata
+
+__version__ = importlib.metadata.version("hysr")
 
 from .parallel_bursts import ParallelBursts
 from .extra_balls import ExtraBallsSet

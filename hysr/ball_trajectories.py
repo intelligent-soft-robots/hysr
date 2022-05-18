@@ -1,7 +1,7 @@
 import pathlib
 import typing
 import context
-from .types import StampedTrajectory, StampedTrajectories, DurationPoint
+from .hysr_types import StampedTrajectory, StampedTrajectories, DurationPoint
 
 
 class TrajectoryGetter:
@@ -17,7 +17,7 @@ class TrajectoryGetter:
             str("Subclasses of TrajectoryGetter" "must implement the get_one method")
         )
 
-    def get(self) -> StampedTrajectories:
+    def get(self, nb_trajectories: int) -> StampedTrajectories:
         """
         Returns a sequence of trajectories.
         """
@@ -96,12 +96,12 @@ class IndexedRecordedTrajectory(TrajectoryGetter):
 
     def __init__(self, index: int, group: str, hdf5_path: pathlib.Path = None):
         with context.ball_trajectories.RecordedBallTrajectories(hdf5_path) as rbt:
-            if not group in rbt.get_groups():
+            if group not in rbt.get_groups():
                 raise KeyError(
                     "failed to find the group {} in {}".format(group, hdf5_path)
                 )
             indexes = rbt.get_indexes(group)
-            if not index in indexes:
+            if index not in indexes:
                 max_index = max([int(i) for i in indexes])
                 raise KeyError(
                     "failed to find the index {} "
