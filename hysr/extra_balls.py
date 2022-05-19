@@ -6,12 +6,7 @@ import context
 import pam_mujoco
 
 # imports from hysr
-from .hysr_types import (
-    ListOrIndex,
-    AcceptedNbOfBalls,
-    ExtraBallsState,
-    JointStates,
-)
+from .hysr_types import ListOrIndex, AcceptedNbOfBalls, ExtraBallsState, JointStates
 from .scene import Scene
 from .ball_trajectories import TrajectoryGetter
 

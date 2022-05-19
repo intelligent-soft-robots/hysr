@@ -2,10 +2,7 @@ import time
 import typing
 import pytest
 import pam_mujoco
-from hysr import (
-    SimPressureRobot,
-    SimAcceleratedPressureRobot,
-)
+from hysr import SimPressureRobot, SimAcceleratedPressureRobot
 from hysr import Defaults
 from hysr import hysr_types
 from . import pam_mujoco_utils

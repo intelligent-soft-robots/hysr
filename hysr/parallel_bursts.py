@@ -141,11 +141,8 @@ class ParallelBursts:
                 self._running = False
                 for thread in self._threads:
                     thread.join()
-            self._thread = None
-            self._lock = None
-        else:
-            self._thread = None
-            self._lock = None
+        self._thread = None
+        self._lock = None
 
     def __del__(self):
         self.stop()
