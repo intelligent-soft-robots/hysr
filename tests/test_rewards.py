@@ -1,6 +1,5 @@
 from enum import Enum
 import typing
-import pytest
 import hysr
 
 
@@ -18,10 +17,10 @@ class Velocity(Enum):
 def _get_trajectories(
     ball_racket: Distance, ball_target: Distance, ball_velocity: Velocity
 ) -> typing.Tuple[
-    hysr.types.Point3D,
-    typing.Sequence[hysr.types.Point3D],
-    typing.Sequence[hysr.types.Point3D],
-    typing.Sequence[hysr.types.Point3D],
+    hysr.hysr_types.Point3D,
+    typing.Sequence[hysr.hysr_types.Point3D],
+    typing.Sequence[hysr.hysr_types.Point3D],
+    typing.Sequence[hysr.hysr_types.Point3D],
 ]:
     """
     Returns the position of the target, as well as 6 points trajectories
@@ -65,11 +64,11 @@ def _get_trajectories(
     elif ball_velocity == Velocity.FAST:
         velocity_traj = [[2.0] * 3] * 6
 
-    return target, racket_traj, position_traj, velocity_traj
+    return target, racket_traj, position_traj, velocity_traj  # type: ignore
 
 
 def _compute_reward(
-    reward_function: hysr.types.RewardFunction,
+    reward_function: hysr.hysr_types.RewardFunction,
     contacts: typing.Sequence[bool],
     ball_racket: Distance,
     ball_target: Distance,

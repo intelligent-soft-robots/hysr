@@ -1,4 +1,7 @@
-import time, threading, typing, pam_mujoco
+import time
+import threading
+import typing
+import pam_mujoco
 from .extra_balls import ExtraBallsSet
 from .main_sim import MainSim
 from .pressure_robot import SimAcceleratedPressureRobot
@@ -38,16 +41,18 @@ class ParallelBursts:
 
         # after call to burst: for monitoring which handle
         # finished to burst and which one did not finish
-        self._burst_done = [False] * self._size
+        self._burst_done: typing.List[bool] = [False] * self._size
 
         # how many bursts the handles should perform.
         # Also used as a signal for the handles that they
         # should burst (burst not None -> handles must
         # burst)
-        self._nb_bursts = None
+        self._nb_bursts: typing.Optional[int] = None
 
         # there is more than 1 handle, so we need threads
         # to have them running in parallel
+        self._lock: typing.Optional[threading.Lock]
+        self._threads: typing.Optional[typing.Sequence[threading.Thread]]
         if self._size > 1:
             self._lock = threading.Lock()
             self._threads = [
@@ -62,12 +67,14 @@ class ParallelBursts:
             self._lock = None
             self._threads = None
 
-    def _run(self, index: None) -> None:
+    def _run(self, index: int) -> None:
         """
         method ran by each thread.
         index : index of the handle in the
                 self._handles list
         """
+        if self._lock is None:
+            return
         while self._running:
             with self._lock:
                 # checking if burst is requested
@@ -101,6 +108,11 @@ class ParallelBursts:
 
         # several handles running in parallel
         else:
+            if self._lock is None:
+                raise ValueError(
+                    "This instance of ParallelBursts has been closed, "
+                    "and should no longer be used"
+                )
             with self._lock:
                 # None of the handles started bursting yet
                 self._burst_done = [False] * self._size
@@ -122,10 +134,15 @@ class ParallelBursts:
         """
         Stopping all threads
         """
-        if self._size > 1 and self._running:
-            self._running = False
-            for thread in self._threads:
-                thread.join()
+        if self._threads is None:
+            return  # already stopped
+        if self._size > 1:
+            if self._running:
+                self._running = False
+                for thread in self._threads:
+                    thread.join()
+        self._thread = None
+        self._lock = None
 
     def __del__(self):
         self.stop()

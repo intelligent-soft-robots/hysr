@@ -1,5 +1,9 @@
-import typing, pathlib, inspect
-import context, pam_models, pam_interface, pam_mujoco
+import typing
+import pathlib
+import inspect
+import pam_models
+import pam_interface
+import pam_mujoco
 from .ball_trajectories import RandomRecordedTrajectory
 
 # a group in the default HDF5 file hosting

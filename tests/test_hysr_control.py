@@ -1,7 +1,5 @@
-import time
+import typing
 import pytest
-import math
-import pam_interface
 import pam_mujoco
 import hysr
 from . import pam_mujoco_utils
@@ -12,7 +10,7 @@ _pressure_robot_segment_id_g = "tests_pressure_robot_sid"
 
 
 @pytest.fixture
-def run_pam_mujocos(request, scope="function") -> None:
+def run_pam_mujocos(request, scope="function") -> typing.Generator[None, None, None]:
     """
     Spawns a three pam_mujocos with mujoco_id suitable for
     an instance of MainSim, an instance of ExtraBallsSet
@@ -22,7 +20,7 @@ def run_pam_mujocos(request, scope="function") -> None:
     """
     main_sim_mujoco_id = hysr.MainSim.get_mujoco_id()
     extra_balls_mujoco_id = hysr.ExtraBallsSet.get_mujoco_id(1)
-    process = pam_mujoco_utils.start_pam_mujocos(
+    pam_mujoco_utils.start_pam_mujocos(
         [_pressure_robot_mujoco_id_g, main_sim_mujoco_id, extra_balls_mujoco_id]
     )
     yield None
@@ -30,7 +28,7 @@ def run_pam_mujocos(request, scope="function") -> None:
 
 
 @pytest.fixture(scope="function", params=[True, False])
-def hysr_control_instance(request) -> hysr.HysrControl:
+def hysr_control_instance(request) -> typing.Generator[hysr.HysrControl, None, None]:
     """
     Instantiate an instance of HysrControl and yields it.
     It is parametrized to yield both real time (hysr.SimPressureRobot)
@@ -41,9 +39,9 @@ def hysr_control_instance(request) -> hysr.HysrControl:
     # yielding instances of different classes depending if
     # parametrized for real or accelerated time
     if accelerated:
-        PressureRobotClass = hysr.SimAcceleratedPressureRobot
+        PressureRobotClass = hysr.SimAcceleratedPressureRobot  # type: ignore
     else:
-        PressureRobotClass = hysr.SimPressureRobot
+        PressureRobotClass = hysr.SimPressureRobot  # type: ignore
 
     # instantiating the robot and simulations
     graphics = False
@@ -52,7 +50,7 @@ def hysr_control_instance(request) -> hysr.HysrControl:
     trajectory_getter = hysr.Defaults.trajectory_getter
     main_sim = hysr.MainSim(robot_type, graphics, scene, trajectory_getter)
     setid = 1
-    nb_balls = 3
+    nb_balls: hysr.hysr_types.AcceptedNbOfBalls = 3
     extra_balls_set = hysr.ExtraBallsSet(
         setid, nb_balls, graphics, scene, trajectory_getter
     )
@@ -87,9 +85,8 @@ def test_align_robots(run_pam_mujocos, hysr_control_instance):
     hysr_control = hysr_control_instance
 
     # getting the underlying instances
-    pressure_robot: hysr.PressureRobot = hysr_control._pressure_robot
     main_sim: hysr.MainSim = hysr_control._main_sim
-    extra_balls: hysr.typing.Sequence[ExtraBallsSet] = hysr_control._extra_balls
+    extra_balls: hysr.typing.Sequence[hysr.ExtraBallsSet] = hysr_control._extra_balls
 
     # moving all robots in different positions
     pos1 = [1.0, 1.5, -0.5, -1.0]
@@ -103,7 +100,7 @@ def test_align_robots(run_pam_mujocos, hysr_control_instance):
         eb.burst(1000)
 
     # ensuring all robots are in different positions
-    states: hysr.types.States = hysr_control.get_states()
+    states: hysr.hysr_types.States = hysr_control.get_states()
     pressure_pos = states.pressure_robot.joint_positions
     main_pos = states.main_sim.joint_positions
     extra_pos = states.extra_balls[0].joint_positions
@@ -115,7 +112,7 @@ def test_align_robots(run_pam_mujocos, hysr_control_instance):
     hysr_control.align_robots()
 
     # ensuring all robot are now in the same position
-    states: hysr.types.States = hysr_control.get_states()
+    states: hysr.hysr_types.States = hysr_control.get_states()
     pressure_pos = states.pressure_robot.joint_positions
     main_pos = states.main_sim.joint_positions
     extra_pos = states.extra_balls[0].joint_positions
@@ -134,7 +131,7 @@ def test_stepping(run_pam_mujocos, hysr_control_instance):
     hysr_control.align_robots()
 
     # setting desired pressures and letting iterate 20 times
-    target_pressures: hysr.types.RobotPressures = (
+    target_pressures: hysr.hysr_types.RobotPressures = (
         (21000, 19000),
         (20000, 18000),
         (18000, 18000),
@@ -188,7 +185,7 @@ def test_instant_reset(run_pam_mujocos, hysr_control_instance):
     hysr_control.align_robots()
 
     # going to some random positions
-    target_pressures: hysr.types.RobotPressures = (
+    target_pressures: hysr.hysr_types.RobotPressures = (
         (21000, 19000),
         (20000, 18000),
         (18000, 18000),

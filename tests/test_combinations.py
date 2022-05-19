@@ -1,9 +1,5 @@
-import itertools
-import time
 import typing
 import pytest
-import o80
-import o80_pam
 import pam_mujoco
 import hysr
 from . import pam_mujoco_utils
@@ -13,7 +9,7 @@ _pressure_robot_segment_id_g = "tests_pressure_robot_sid"
 
 
 @pytest.fixture
-def run_pam_mujocos(request, scope="function") -> None:
+def run_pam_mujocos(request, scope="function") -> typing.Generator[None, None, None]:
     """
     Spawns a three pam_mujocos with mujoco_id suitable for
     an instance of MainSim, an instance of ExtraBallsSet
@@ -23,7 +19,7 @@ def run_pam_mujocos(request, scope="function") -> None:
     """
     main_sim_mujoco_id = hysr.MainSim.get_mujoco_id()
     extra_balls_mujoco_id = hysr.ExtraBallsSet.get_mujoco_id(1)
-    process = pam_mujoco_utils.start_pam_mujocos(
+    pam_mujoco_utils.start_pam_mujocos(
         [_pressure_robot_mujoco_id_g, main_sim_mujoco_id, extra_balls_mujoco_id]
     )
     yield None
@@ -82,7 +78,6 @@ def test_mirroring(run_pam_mujocos):
 
         # running a few iterations, with the robots of the main sim and
         # of the extra balls sim mirroring the pseudo real robot
-        stable = False
         nb_iterations = main_traj_size
 
         for iter in range(nb_iterations):

@@ -1,15 +1,12 @@
-import time
 import typing
 import pytest
-import o80
-import o80_pam
 import pam_mujoco
 import hysr
 from . import pam_mujoco_utils
 
 
 @pytest.fixture
-def run_pam_mujocos(request, scope="function") -> None:
+def run_pam_mujocos(request, scope="function") -> typing.Generator[None, None, None]:
     """
     Spawns a pam_mujoco with mujoco_id suitable for
     an instance of MainSim.
@@ -17,13 +14,13 @@ def run_pam_mujocos(request, scope="function") -> None:
     cleanup: stops the pam mujoco processes
     """
     mujoco_id = hysr.MainSim.get_mujoco_id()
-    process = pam_mujoco_utils.start_pam_mujocos([mujoco_id])
+    pam_mujoco_utils.start_pam_mujocos([mujoco_id])
     yield None
     pam_mujoco_utils.stop_pam_mujocos()
 
 
 @pytest.fixture
-def run_2_pam_mujocos(request, scope="function") -> None:
+def run_2_pam_mujocos(request, scope="function") -> typing.Generator[None, None, None]:
     """
     Spawns a pam_mujoco with mujoco_id suitable for
     an instance of MainSim.
@@ -32,9 +29,7 @@ def run_2_pam_mujocos(request, scope="function") -> None:
     """
     main_sim_mujoco_id = hysr.MainSim.get_mujoco_id()
     extra_balls_mujoco_id = hysr.ExtraBallsSet.get_mujoco_id(1)
-    process = pam_mujoco_utils.start_pam_mujocos(
-        [main_sim_mujoco_id, extra_balls_mujoco_id]
-    )
+    pam_mujoco_utils.start_pam_mujocos([main_sim_mujoco_id, extra_balls_mujoco_id])
     yield None
     pam_mujoco_utils.stop_pam_mujocos()
 
@@ -50,8 +45,6 @@ def test_robot(run_pam_mujocos):
     trajectory_getter = hysr.Defaults.trajectory_getter
     main_sim = hysr.MainSim(robot_type, graphics, scene, trajectory_getter)
 
-    state_ini: hysr.types.MainSimState = main_sim.get_state()
-
     # playing a trajectory going from position 0 to position 0.1
     # in 20 iterations
     nb_iter = 20
@@ -61,14 +54,13 @@ def test_robot(run_pam_mujocos):
     target_velocities = tuple([delta / mujoco_period] * 4)
     final_positions = tuple([delta * nb_iter] * 4)
     for iter in range(nb_iter):
-        state_ini: hysr.types.MainSimState = main_sim.get_state()
         main_sim.set_robot(target_positions, target_velocities)
         main_sim.burst(1)
         target_positions = tuple([tp + delta for tp in target_positions])
 
     # checking the robot is at the expected position
     main_sim.burst(1)
-    state: hysr.types.MainSimState = main_sim.get_state()
+    state: hysr.hysr_types.MainSimState = main_sim.get_state()
     precision = 1e-3
     for p1, p2 in zip(final_positions, state.joint_positions):
         assert p1 == pytest.approx(p2, abs=precision)
@@ -101,7 +93,7 @@ def test_ball(run_pam_mujocos):
 
     main_sim.burst(nb_iterations)
 
-    state: hysr.types.MainSimState = main_sim.get_state()
+    state: hysr.hysr_types.MainSimState = main_sim.get_state()
     precision = 5e-3
     for p1, p2 in zip(end_position, state.ball_position):
         assert p1 == pytest.approx(p2, abs=precision)

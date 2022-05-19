@@ -1,11 +1,12 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import typing
+from typing import Optional
 import context
 
 StampedTrajectory = context.ball_trajectories.StampedTrajectory
-""" 
+"""
 A tuple which first entry is a sequence of time stamps (in microseconds),
-and the second entry a numpy array which lines are 3d float positions.   
+and the second entry a numpy array which lines are 3d float positions.
 """
 
 StampedTrajectories = context.ball_trajectories.StampedTrajectories
@@ -17,15 +18,15 @@ DurationPoint = context.ball_trajectories.DurationPoint
 """
 tuple [time stamp (microseconds), o80.Item3dState],
 o80.Item3dState has set/get_positon() and set/get_velocity
-methods. 
+methods.
 """
 
-ListOrIndex = typing.Union[int, typing.Sequence[int]]
+ListOrIndex = Optional[typing.Union[int, typing.List[int]]]
 """ For functions accepting either an int or a list of int as arguments"""
 
 AcceptedNbOfBalls = typing.Literal[3, 10, 20, 50, 100]
 """ The underlying C++ API does not support any number of extra
-  balls per ExtraBallsSet. Here the only accepted values. 
+  balls per ExtraBallsSet. Here the only accepted values.
 """
 
 Point3D = typing.Tuple[float, float, float]
@@ -90,20 +91,26 @@ class MainSimState:
       time stamp of the mujoco simulation (nanoseconds)
     """
 
-    ball_position: Point3D = None
-    ball_velocity: Point3D = None
-    joint_positions: JointStates = None
-    joint_velocities: JointStates = None
-    racket_cartesian: CartesianPose = None
-    contact: context.ContactInformation = None
-    iteration: int = None
-    time_stamp: int = None
+    ball_position: Point3D = (0.0, 0.0, 0.0)
+    ball_velocity: Point3D = (0.0, 0.0, 0.0)
+    joint_positions: JointStates = (0.0, 0.0, 0.0, 0.0)
+    joint_velocities: JointStates = (0.0, 0.0, 0.0, 0.0)
+    racket_cartesian: CartesianPose = (
+        (0.0, 0.0, 0.0),
+        (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+    )
+    contact: context.ContactInformation = context.ContactInformation()
+    iteration: int = -1
+    time_stamp: int = -1
 
 
 @dataclass
 class ExtraBallsState:
     """
-    Snapshot state of an ExtraBallsState.
+    Snapshot state of an ExtraBallsState,
+    i.e. information about all the balls
+    in a extra balls sets at a given
+    iteration / timestamp
 
     Attributes
     ----------
@@ -126,14 +133,14 @@ class ExtraBallsState:
       time stamp of the mujoco simulation (nanoseconds)
     """
 
-    ball_positions: typing.Sequence[Point3D] = None
-    ball_velocities: typing.Sequence[Point3D] = None
-    contacts: typing.Sequence[bool] = None
-    joint_positions: JointStates = None
-    joint_velocities: JointStates = None
-    racket_cartesian: Point3D = None
-    iteration: int = None
-    time_stamp: int = None
+    ball_positions: typing.Sequence[Point3D] = field(default_factory=list)
+    ball_velocities: typing.Sequence[Point3D] = field(default_factory=list)
+    contacts: typing.Sequence[bool] = field(default_factory=list)
+    joint_positions: JointStates = (0.0, 0.0, 0.0, 0.0)
+    joint_velocities: JointStates = (0.0, 0.0, 0.0, 0.0)
+    racket_cartesian: Point3D = (0.0, 0.0, 0.0)
+    iteration: int = -1
+    time_stamp: int = -1
 
 
 @dataclass
@@ -156,16 +163,16 @@ class PressureRobotState:
       time_stamp of the backend, in nanoseconds
     """
 
-    joint_positions: JointStates = None
-    joint_velocities: JointStates = None
+    joint_positions: JointStates = (0.0, 0.0, 0.0, 0.0)
+    joint_velocities: JointStates = (0.0, 0.0, 0.0, 0.0)
     desired_pressures: typing.Tuple[
         JointPressures, JointPressures, JointPressures, JointPressures
-    ] = None
+    ] = ((0, 0), (0, 0), (0, 0), (0, 0))
     observed_pressures: typing.Tuple[
         JointPressures, JointPressures, JointPressures, JointPressures
-    ] = None
-    iteration: int = None
-    time_stamp: int = None
+    ] = ((0, 0), (0, 0), (0, 0), (0, 0))
+    iteration: int = -1
+    time_stamp: int = -1
 
 
 @dataclass
@@ -186,6 +193,10 @@ class States:
 
     pressure_robot: PressureRobotState
     main_sim: MainSimState
+
+    # one entry per extra balls set. Each extra ball
+    # set is managed by its own dedicated simulator and
+    # may contains several balls
     extra_balls: typing.Sequence[ExtraBallsState]
 
 
@@ -194,13 +205,15 @@ StatesHistory = typing.Sequence[States]
 Sequence of instances of States
 """
 
-RewardFunction = typing.Callable[[float, float, float], float]
+RewardFunction = typing.Callable[
+    [Optional[float], Optional[float], Optional[float], float, float], float
+]
 """
 Function computing a reward corresponding to how
-well a ball did in the context of table tennis. 
+well a ball did in the context of table tennis.
 If the ball did not have a contact with the racket,
-then min_distance_ball_target and max_ball_velocity 
+then min_distance_ball_target and max_ball_velocity
 are expected to be None. If the ball had a contact with
-the racket, min_distance_ball_target is expected to be 
-None. 
+the racket, min_distance_ball_target is expected to be
+None.
 """

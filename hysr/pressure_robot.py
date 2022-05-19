@@ -1,7 +1,8 @@
-import pathlib, typing
-from dataclasses import dataclass
-import o80, o80_pam, pam_mujoco
-from .types import RobotPressures, JointPressures, JointStates, PressureRobotState
+import pathlib
+import o80
+import o80_pam
+import pam_mujoco
+from .hysr_types import RobotPressures, PressureRobotState
 
 
 class PressureRobot:
@@ -44,8 +45,8 @@ class PressureRobot:
         """Returns the current state of the robot"""
         obs = self._frontend.latest()
         state = PressureRobotState()
-        state.desired_pressures = tuple(obs.get_desired_pressures())
-        state.observed_pressures = tuple(obs.get_observed_pressures())
+        state.desired_pressures = tuple(obs.get_desired_pressures())  # type: ignore
+        state.observed_pressures = tuple(obs.get_observed_pressures())  # type: ignore
         state.joint_positions = obs.get_positions()
         state.joint_velocities = obs.get_velocities()
         state.iteration = obs.get_iteration()
@@ -59,6 +60,10 @@ class PressureRobot:
         agos = [rp[0] for rp in robot_pressures]
         antagos = [rp[1] for rp in robot_pressures]
         self._frontend.add_command(agos, antagos, o80.Mode.OVERWRITE)
+
+    def pulse(self) -> None:
+        """Share the queue of commmands with the robot."""
+        raise NotImplementedError()
 
 
 class PamMujocoPressureRobot:
@@ -156,7 +161,7 @@ class RealRobot(RealTimePressureRobot):
     def __init__(self, segment_id: str):
         try:
             frontend = o80_pam.FrontEnd(segment_id)
-        except RuntimeError as e:
+        except RuntimeError:
             raise Exception(
                 str(
                     "RealRobot: failed to instantiate a frontend to  "

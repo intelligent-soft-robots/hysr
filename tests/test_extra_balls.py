@@ -1,7 +1,7 @@
 import typing
 import pytest
+import context
 import o80
-import o80_pam
 import pam_mujoco
 import hysr
 from hysr import ExtraBallsSet, Scene, Defaults, ball_trajectories, ParallelBursts
@@ -32,7 +32,9 @@ def _load_line_trajectory(
 
 
 @pytest.fixture
-def run_pam_mujocos(request, scope="function") -> typing.Sequence[ExtraBallsSet]:
+def run_pam_mujocos(
+    request, scope="function"
+) -> typing.Generator[typing.Sequence[ExtraBallsSet], None, None]:
     """
     request.param is a list of n integers corresponding to the
     number of extra balls to be holded by each of n corresponding pam_mujoco processes.
@@ -198,7 +200,7 @@ def test_contacts(run_pam_mujocos):
     # control should have been lost on all balls except the
     # first one. So, only the first one should be at the end position
     for eb in extra_balls:
-        state: ExtraBallsState = eb.get_state()
+        state: hysr.hysr_types.ExtraBallsState = eb.get_state()
         positions = state.ball_positions
         precision = 5e-3
         for dim in range(3):
@@ -224,7 +226,7 @@ def test_contacts(run_pam_mujocos):
 
     # now, all balls should be at the end position
     for eb in extra_balls:
-        state: ExtraBallsState = eb.get_state()
+        state: hysr.hysr_types.ExtraBallsState = eb.get_state()
         positions = state.ball_positions
         precision = 5e-3
         for position in positions:
@@ -244,7 +246,7 @@ def test_random_trajectories(run_pam_mujocos):
     extra_balls: ExtraBallsSet = run_pam_mujocos[0]
     traj_sizes = extra_balls.load_trajectories()
     extra_balls.burst(min(traj_sizes))
-    state: hysr.types.ExtraBallsSet = extra_balls.get_state()
+    state: hysr.hysr_types.ExtraBallsSet = extra_balls.get_state()
     for index, p1 in enumerate(state.ball_positions):
         for p2 in state.ball_positions[index + 1 :]:
             assert not p1 == p2
@@ -257,7 +259,7 @@ def test_random_trajectories(run_pam_mujocos):
     traj_sizes = extra_balls.load_trajectories()
     assert len(set(traj_sizes)) == 1
     extra_balls.burst(traj_sizes[0])
-    state: hysr.types.ExtraBallsSet = extra_balls.get_state()
+    state: hysr.hysr_types.ExtraBallsSet = extra_balls.get_state()
     for index, p1 in enumerate(state.ball_positions):
         for p2 in state.ball_positions[index + 1 :]:
             assert p1 == p2
@@ -278,8 +280,8 @@ def test_reset(run_pam_mujocos):
     list_attrs = ("joint_positions", "racket_cartesian")
 
     def _assert_compare(
-        a: hysr.types.ExtraBallsState,
-        b: hysr.types.ExtraBallsState,
+        a: hysr.hysr_types.ExtraBallsState,
+        b: hysr.hysr_types.ExtraBallsState,
         precision: float,
         same: bool,
     ) -> None:
@@ -300,12 +302,16 @@ def test_reset(run_pam_mujocos):
                 )
 
     def _assert_same(
-        a: hysr.types.ExtraBallsState, b: hysr.types.ExtraBallsState, precision: float
+        a: hysr.hysr_types.ExtraBallsState,
+        b: hysr.hysr_types.ExtraBallsState,
+        precision: float,
     ) -> None:
         _assert_compare(a, b, precision, True)
 
     def _assert_diff(
-        a: hysr.types.ExtraBallsState, b: hysr.types.ExtraBallsState, precision: float
+        a: hysr.hysr_types.ExtraBallsState,
+        b: hysr.hysr_types.ExtraBallsState,
+        precision: float,
     ) -> None:
         _assert_compare(a, b, precision, False)
 

@@ -42,7 +42,7 @@ def run_pam_mujocos(request) -> typing.Generator[pam_mujoco.MujocoHandle, None, 
     cleanup : stops the pam_mujoco_processes
     """
     mujoco_ids = request.param
-    process = pam_mujoco_utils.start_pam_mujocos(mujoco_ids)
+    pam_mujoco_utils.start_pam_mujocos(mujoco_ids)
     handles = _configure_pam_mujocos(mujoco_ids)
     yield handles
     pam_mujoco_utils.stop_pam_mujocos()

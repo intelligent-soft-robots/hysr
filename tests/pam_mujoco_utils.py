@@ -11,7 +11,7 @@ def start_pam_mujocos(mujoco_ids: typing.Sequence[str]):
     calls 'pam_mujoco_no_xterms mujocod_id1 mujoco_id2 ...'
     """
     shared_memory.delete_all_segments()
-    command = ["pam_mujoco_no_xterms"] + mujoco_ids
+    command = ["pam_mujoco_no_xterms"] + list(mujoco_ids)
     process = subprocess.Popen(command, stdout=None, stderr=None)
     time.sleep(0.5)
     return process

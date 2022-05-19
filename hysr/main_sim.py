@@ -1,8 +1,10 @@
 import typing
-import o80, pam_mujoco, context
+import o80
+import pam_mujoco
+import context
 from .scene import Scene
-from .ball_trajectories import TrajectoryGetter, RandomRecordedTrajectory
-from . import types
+from .ball_trajectories import TrajectoryGetter
+from . import hysr_types
 
 # mujoco_id, the same value has to be used for
 # the pam_mujoco instance of the instance of MainSim.
@@ -151,7 +153,7 @@ class MainSim:
 
         return self._handle.get_contact(_ball_segment_id)
 
-    def activate_contact(self, index: types.ListOrIndex = None) -> None:
+    def activate_contact(self, index: hysr_types.ListOrIndex = None) -> None:
         """
         Contact will no longer be ignored (if 'deactivate_contact'
         has been previously called)
@@ -173,17 +175,18 @@ class MainSim:
         """
         self._handle.reset_contact(_ball_segment_id)
 
-    def get_state(self) -> types.MainSimState:
+    def get_state(self) -> hysr_types.MainSimState:
         """
         Returns the current state of the simulation."""
         # ball observation
         ball_obs = self._frontend_ball.latest()
         ball = ball_obs.get_observed_states()
-        ball_position = [None] * 3
-        ball_velocity = [None] * 3
-        for dim in range(3):
-            ball_position[dim] = ball.get(2 * dim).get()
-            ball_velocity[dim] = ball.get(2 * dim + 1).get()
+        ball_position = typing.cast(
+            hysr_types.Point3D, tuple([ball.get(2 * dim).get() for dim in range(3)])
+        )
+        ball_velocity = typing.cast(
+            hysr_types.Point3D, tuple([ball.get(2 * dim + 1).get() for dim in range(3)])
+        )
         # robot observation
         robot_obs = self._frontend_robot.latest()
         cartesian = (
@@ -191,7 +194,7 @@ class MainSim:
             robot_obs.get_cartesian_orientation(),
         )
         # returning
-        return types.MainSimState(
+        return hysr_types.MainSimState(
             ball_position,
             ball_velocity,
             robot_obs.get_positions(),
@@ -203,7 +206,7 @@ class MainSim:
         )
 
     def set_robot(
-        self, positions: types.JointStates, velocities: types.JointStates
+        self, positions: hysr_types.JointStates, velocities: hysr_types.JointStates
     ) -> None:
         """
         Set a command for the o80 backend of the robot.

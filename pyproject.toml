@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "hysr"
+version = "0.0.1"
+description = "Learning table tennis from scratch"
+authors = [
+	"Vincent Berenz <vberenz@tuebingen.mpg.de>",
+        "Dieter Buechler <dieter.buechler@tuebingen.mpg.de>",
+	"Simon Guist <simon.guist@tuebingen.mpg.de>",
+	"Felix Widmaier <felix.widmaier@tuebingen.mpg.de>"
+]
+packages = [
+	 { include = "hysr" },
+	 { include = 'hysr_install' }
+] 
+include = ["hysr_install/pam.sh"]
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.11"
+colcon-common-extensions = "^0.2.1"
+treep = "^1.52"
+fyplot = "^2.0"
+PySide2 = "^5.15.2"
+empy = "^3.3.4"
+Sphinx = "^4.5.0"
+breathe = "^4.33.1"
+matplotlib = "^3.5.2"
+h5py = "^3.6.0"
+nptyping = "^2.0.1"
+nose = "^1.3.7"
+importlib = "^1.0.4"
+
+[tool.poetry.scripts]
+hysr_pam_install = 'hysr_install.pam_install:run'
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
