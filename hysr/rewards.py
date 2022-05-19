@@ -8,7 +8,7 @@ def _norm(vector: hysr_types.Point3D) -> float:
     """
     Returns the norm of the vector
     """
-    return math.sqrt(sum([v ** 2 for v in vector]))
+    return math.sqrt(sum([v**2 for v in vector]))
 
 
 def _distance(p1: hysr_types.Point3D, p2: hysr_types.Point3D) -> float:
