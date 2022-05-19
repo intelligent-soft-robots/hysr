@@ -1,5 +1,6 @@
+import copy
+import math
 import typing
-from numbers import Number
 from .hysr_types import (
     Point3D,
     Box,
@@ -8,14 +9,17 @@ from .hysr_types import (
     JointStates,
     JointPressures,
     RobotPressures,
+    PressureRobotState,
+    ExtraBallsState,
+    MainSimState,
+    States,
+    StatesHistory,
 )
 
 FloatTuple = typing.Union[
     Point3D,
     Orientation3D,
     JointStates,
-    JointPressures,
-    RobotPressures,
     typing.Tuple[float, float],
 ]
 
@@ -24,8 +28,6 @@ NumberTuple = typing.TypeVar(
     Point3D,
     Orientation3D,
     JointStates,
-    JointPressures,
-    RobotPressures,
     JointPressures,
 )
 
@@ -67,43 +69,29 @@ def _value_error_if_out_of_bounds(
         )
 
 
-def _check_bounds(
-    f: typing.Callable[[NumberTuple, NumberTuple, NumberTuple], FloatTuple]
-) -> typing.Callable[[NumberTuple, NumberTuple, NumberTuple], FloatTuple]:
-    """
-    Decorator applying _value_error_if_out_of_bounds
-    """
-    def wrapper(
-        input_: NumberTuple, min_values: NumberTuple, max_values: NumberTuple
-    ) -> FloatTuple:
-        _value_error_if_out_of_bounds(input_, min_values, max_values)
-        return f(input_, min_values, max_values)
-    return wrapper
-
-
-@_check_bounds
 def normalize(
-    input_: NumberTuple, min_values: NumberTuple, max_values: NumberTuple
-) -> FloatTuple:
+    input_: NumberTuple,
+    min_values: NumberTuple,
+    max_values: NumberTuple,
+    should_round: bool = False,
+) -> NumberTuple:
     """
     Cast all values in the input_ to [0,1],
     assuming the input_ values are all between
     the provided min and max values.
-    Raise a ValueError if any inpout value in not
+    Raise a ValueError if any input value in not
     in the expected min/max interval.
     """
-    return typing.cast(
-        FloatTuple,
-        tuple(
-            [
-                float(p - min_) / float(max_ - min_)
-                for p, min_, max_ in zip(input_, min_values, max_values)
-            ]
-        ),
-    )
+    _value_error_if_out_of_bounds(input_, min_values, max_values)
+    normalized = [
+        float(p - min_) / float(max_ - min_)
+        for p, min_, max_ in zip(input_, min_values, max_values)
+    ]
+    if should_round:
+        normalized = [round(n) for n in normalized]
+    return typing.cast(NumberTuple, tuple(normalized))
 
 
-@_check_bounds
 def normalize_point3D(point: Point3D, box: Box) -> Point3D:
     """
     Normalize the coordinates of the points, assuming
@@ -112,16 +100,16 @@ def normalize_point3D(point: Point3D, box: Box) -> Point3D:
     return normalize(point, box[0], box[1])
 
 
-@_check_bounds
 def normalize_orientation3D(orientation: Orientation3D) -> Orientation3D:
     """
     Normalize the orientation, i.e. cast
     its values from [-1,1] to [0,1]
     """
-    return normalize(orientation, (-1.0, -1.0), (1.0, 1.0))
+    min_ = typing.cast(Orientation3D, tuple([-1.0] * 9))
+    max_ = typing.cast(Orientation3D, tuple([+1.0] * 9))
+    return normalize(orientation, min_, max_)
 
 
-@_check_bounds
 def normalize_cartesian_pose(
     cartesian_pose: CartesianPose, box3d: Box
 ) -> CartesianPose:
@@ -136,7 +124,6 @@ def normalize_cartesian_pose(
     )
 
 
-@_check_bounds
 def normalize_joint_states(joint_states: JointStates) -> JointStates:
     """
     Casts all values from [-2pi,2pi] to [0,1]
@@ -148,7 +135,6 @@ def normalize_joint_states(joint_states: JointStates) -> JointStates:
     )
 
 
-@_check_bounds
 def normalize_joint_pressures(
     pressures: JointPressures,
     min_pressures: JointPressures,
@@ -157,8 +143,7 @@ def normalize_joint_pressures(
     """
     Cast all pressures value to [0,1]
     """
-    normalized: FloatTuple = normalize(pressures, min_pressures, max_pressures)
-    return typing.cast(JointPressures, tuple([round(n) for n in normalize]))
+    return normalize(pressures, min_pressures, max_pressures, should_round=True)
 
 
 def normalize_robot_pressures(
@@ -166,6 +151,9 @@ def normalize_robot_pressures(
     min_pressures: RobotPressures,
     max_pressures: RobotPressures,
 ) -> RobotPressures:
+    """
+    Cast all values to [0,1]
+    """
     return typing.cast(
         RobotPressures,
         tuple(
@@ -175,3 +163,96 @@ def normalize_robot_pressures(
             ]
         ),
     )
+
+
+def normalize_pressure_robot_state(
+    state: PressureRobotState,
+    min_pressures: RobotPressures,
+    max_pressures: RobotPressures,
+) -> PressureRobotState:
+    """
+    Cast all values to [0,1]
+    """
+    return PressureRobotState(
+        normalize_joint_states(state.joint_positions),
+        normalize_joint_states(state.joint_velocities),
+        normalize_robot_pressures(
+            state.desired_pressures, min_pressures, max_pressures
+        ),
+        normalize_robot_pressures(
+            state.observed_pressures, min_pressures, max_pressures
+        ),
+        state.iteration,
+        state.time_stamp,
+    )
+
+
+def normalize_extra_balls_state(state: ExtraBallsState, box: Box) -> ExtraBallsState:
+    """
+    Cast all values to [0,1]
+    """
+    return ExtraBallsState(
+        [
+            normalize_point3D(ball_position, box)
+            for ball_position in state.ball_positions
+        ],
+        [
+            normalize_point3D(ball_velocity, box)
+            for ball_velocity in state.ball_velocities
+        ],
+        copy.deepcopy(state.contacts),
+        normalize_joint_states(state.joint_positions),
+        normalize_joint_states(state.joint_velocities),
+        normalize_point3D(state.racket_cartesian, box),
+        state.iteration,
+        state.time_stamp,
+    )
+
+
+def normalize_main_sim_state(state: MainSimState, box: Box) -> MainSimState:
+    """
+    Cast all values to [0,1]
+    """
+    return MainSimState(
+        normalize_point3D(state.ball_position, box),
+        normalize_point3D(state.ball_velocity, box),
+        normalize_joint_states(state.joint_positions),
+        normalize_joint_states(state.joint_velocities),
+        normalize_cartesian_pose(state.racket_cartesian, box),
+        state.contact,
+        state.iteration,
+        state.time_stamp,
+    )
+
+
+def normalize_states(
+    state: States,
+    box: Box,
+    min_pressures: RobotPressures,
+    max_pressures: RobotPressures,
+) -> States:
+    """
+    Cast all values to [0,1]
+    """
+    return States(
+        normalize_pressure_robot_state(
+            state.pressure_robot, min_pressures, max_pressures
+        ),
+        normalize_main_sim_state(state.main_sim, box),
+        [normalize_extra_balls_state(eb, box) for eb in state.extra_balls],
+    )
+
+
+def normalize_states_history(
+    states_history: StatesHistory,
+    box: Box,
+    min_pressures: RobotPressures,
+    max_pressures: RobotPressures,
+) -> StatesHistory:
+    """
+    Cast all values to [0,1]
+    """
+    return [
+        normalize_states(state, box, min_pressures, max_pressures)
+        for state in states_history
+    ]

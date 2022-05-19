@@ -168,12 +168,8 @@ class PressureRobotState:
 
     joint_positions: JointStates = (0.0, 0.0, 0.0, 0.0)
     joint_velocities: JointStates = (0.0, 0.0, 0.0, 0.0)
-    desired_pressures: typing.Tuple[
-        JointPressures, JointPressures, JointPressures, JointPressures
-    ] = ((0, 0), (0, 0), (0, 0), (0, 0))
-    observed_pressures: typing.Tuple[
-        JointPressures, JointPressures, JointPressures, JointPressures
-    ] = ((0, 0), (0, 0), (0, 0), (0, 0))
+    desired_pressures: RobotPressures = ((0, 0), (0, 0), (0, 0), (0, 0))
+    observed_pressures: RobotPressures = ((0, 0), (0, 0), (0, 0), (0, 0))
     iteration: int = -1
     time_stamp: int = -1
 
