@@ -32,6 +32,9 @@ AcceptedNbOfBalls = typing.Literal[3, 10, 20, 50, 100]
 Point3D = typing.Tuple[float, float, float]
 """ For 3d position or 3d velocities  """
 
+Box = typing.Tuple[Point3D, Point3D]
+""" 3d rectangle, first item: min values, second item: max values"""
+
 Orientation3D = typing.Tuple[
     float, float, float, float, float, float, float, float, float
 ]
