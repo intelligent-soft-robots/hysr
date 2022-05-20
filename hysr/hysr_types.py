@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 import typing
+import numpy as np
+import nptyping as npt
 from typing import Optional
 import context
 
@@ -58,6 +60,9 @@ RobotPressures = typing.Tuple[
     JointPressures, JointPressures, JointPressures, JointPressures
 ]
 """ Pressures of a robot. Can be used for observed / desired pressures or pressure commands"""
+
+Observation = npt.NDArray[npt.Shape[typing.Any], np.float32]
+""" A flat array of floats with normalized values, suitable to use as observation in ml APIs """
 
 
 @dataclass

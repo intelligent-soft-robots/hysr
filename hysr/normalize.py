@@ -73,8 +73,7 @@ def normalize(
     input_: NumberTuple,
     min_values: NumberTuple,
     max_values: NumberTuple,
-    should_round: bool = False,
-) -> NumberTuple:
+) -> typing.Tuple[float, ...]:
     """
     Cast all values in the input_ to [0,1],
     assuming the input_ values are all between
@@ -87,8 +86,6 @@ def normalize(
         float(p - min_) / float(max_ - min_)
         for p, min_, max_ in zip(input_, min_values, max_values)
     ]
-    if should_round:
-        normalized = [round(n) for n in normalized]
     return typing.cast(NumberTuple, tuple(normalized))
 
 
@@ -97,7 +94,7 @@ def normalize_point3D(point: Point3D, box: Box) -> Point3D:
     Normalize the coordinates of the points, assuming
     all points are inside the box.
     """
-    return normalize(point, box[0], box[1])
+    return typing.cast(Point3D, normalize(point, box[0], box[1]))
 
 
 def normalize_orientation3D(orientation: Orientation3D) -> Orientation3D:
@@ -107,7 +104,7 @@ def normalize_orientation3D(orientation: Orientation3D) -> Orientation3D:
     """
     min_ = typing.cast(Orientation3D, tuple([-1.0] * 9))
     max_ = typing.cast(Orientation3D, tuple([+1.0] * 9))
-    return normalize(orientation, min_, max_)
+    return typing.cast(Orientation3D, normalize(orientation, min_, max_))
 
 
 def normalize_cartesian_pose(
@@ -119,19 +116,22 @@ def normalize_cartesian_pose(
     (see normalize_orientation3D)
     """
     return (
-        normalize_point3D(cartesian_pose[0], box3d),
-        normalize_orientation3D(cartesian_pose[1]),
+        typing.cast(Point3D, normalize_point3D(cartesian_pose[0], box3d)),
+        typing.cast(Orientation3D, normalize_orientation3D(cartesian_pose[1])),
     )
 
 
 def normalize_joint_states(joint_states: JointStates) -> JointStates:
     """
-    Casts all values from [-2pi,2pi] to [0,1]
+    Casts all values from [-2pi,2pi] to [0.,1.]
     """
-    return normalize(
-        joint_states,
-        typing.cast(JointStates, tuple([-2.0 * math.pi] * 4)),
-        typing.cast(JointStates, tuple([+2.0 * math.pi] * 4)),
+    return typing.cast(
+        JointStates,
+        normalize(
+            joint_states,
+            typing.cast(JointStates, tuple([-2.0 * math.pi] * 4)),
+            typing.cast(JointStates, tuple([+2.0 * math.pi] * 4)),
+        ),
     )
 
 
@@ -141,9 +141,11 @@ def normalize_joint_pressures(
     max_pressures: JointPressures,
 ) -> JointPressures:
     """
-    Cast all pressures value to [0,1]
+    Cast all pressures value to [0.,1.]
     """
-    return normalize(pressures, min_pressures, max_pressures, should_round=True)
+    return typing.cast(
+        JointPressures, normalize(pressures, min_pressures, max_pressures)
+    )
 
 
 def normalize_robot_pressures(
@@ -152,7 +154,7 @@ def normalize_robot_pressures(
     max_pressures: RobotPressures,
 ) -> RobotPressures:
     """
-    Cast all values to [0,1]
+    Cast all values to [0.,1.]
     """
     return typing.cast(
         RobotPressures,
@@ -171,7 +173,7 @@ def normalize_pressure_robot_state(
     max_pressures: RobotPressures,
 ) -> PressureRobotState:
     """
-    Cast all values to [0,1]
+    Cast all values to [0.,1.]
     """
     return PressureRobotState(
         normalize_joint_states(state.joint_positions),
@@ -189,7 +191,7 @@ def normalize_pressure_robot_state(
 
 def normalize_extra_balls_state(state: ExtraBallsState, box: Box) -> ExtraBallsState:
     """
-    Cast all values to [0,1]
+    Cast all values to [0.,1.]
     """
     return ExtraBallsState(
         [
@@ -211,7 +213,7 @@ def normalize_extra_balls_state(state: ExtraBallsState, box: Box) -> ExtraBallsS
 
 def normalize_main_sim_state(state: MainSimState, box: Box) -> MainSimState:
     """
-    Cast all values to [0,1]
+    Cast all values to [0.,1.]
     """
     return MainSimState(
         normalize_point3D(state.ball_position, box),
@@ -232,7 +234,7 @@ def normalize_states(
     max_pressures: RobotPressures,
 ) -> States:
     """
-    Cast all values to [0,1]
+    Cast all values to [0.,1.]
     """
     return States(
         normalize_pressure_robot_state(
@@ -250,7 +252,7 @@ def normalize_states_history(
     max_pressures: RobotPressures,
 ) -> StatesHistory:
     """
-    Cast all values to [0,1]
+    Cast all values to [0.,1.]
     """
     return [
         normalize_states(state, box, min_pressures, max_pressures)
