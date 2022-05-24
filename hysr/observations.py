@@ -22,6 +22,13 @@ def _pack(
     state: typing.Union[MainSimState, ExtraBallsState, PressureRobotState],
     attributes: typing.Sequence[str],
 ) -> Observation:
+    # all attributes of states will be tuple, with the exceptions of
+    # - MainSimState.contact (context.ContactInformation)-> cast to 1 (contact)
+    #                                          or 0 (no contact)
+    # - MainSimState.racket_cartesian: tuple of tuple -> cast to a tuple
+    #   (e.g. ((1,1),(2,2))->(1,1,2,2)
+    # - iteration and time_stamp: no included in _pack (ValueError raised)
+    #   if in attributes
     values: typing.List[float] = []
     for attr in attributes:
         if attr == "contact":
@@ -31,9 +38,30 @@ def _pack(
                 values.append(0.0)
         elif attr == "contacts":
             values.extend([1.0 if c else 0.0 for c in getattr(state, attr)])
+        elif attr in ("iteration","time_stamp"):
+            raise ValueError("pack: {} not accepted as attribute to pack".format(attr))
         else:
             attr_value = getattr(state, attr)
-            values.extend(list(attr_value))
+            if type(attr_value[0])==tuple:
+                # tuple of tuples
+                def _concatenate(
+                        tuples:typing.Tuple[typing.Tuple,...],
+                        index:int=0,
+                        target:typing.List=[]
+                ):
+                    target.extend(list(tuples[index]))
+                    index+=1
+                    if index==len(tuples):
+                        return target
+                    return _concatenate(tuples,index,target)
+                values.extend(
+                    typing.cast(
+                        Observation,
+                        tuple(_concatenate(attr_value))
+                    )
+                )
+            else:
+                values.extend(list(attr_value))
     return np.array(values, dtype=np.float32)
 
 

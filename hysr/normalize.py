@@ -126,8 +126,8 @@ def normalize_point3D(
     if position_box is not None:
         return typing.cast(Point3D, normalize(point, position_box[0], position_box[1]))
     if max_velocity is not None:
-        min_ = (0.0, 0.0, 0.0)
-        max_ = (max_velocity, max_velocity, max_velocity)
+        min_ = (-max_velocity, -max_velocity, -max_velocity)
+        max_ = (+max_velocity, +max_velocity, +max_velocity)
         return typing.cast(Point3D, normalize(point, min_, max_))
     # will never happen. The last "if" is there
     # only to help mypy (which complains about max_velocity
@@ -181,8 +181,8 @@ def normalize_joint_states(
             JointStates,
             normalize(
                 joint_states,
-                typing.cast(JointStates, tuple([0.0] * 4)),
-                typing.cast(JointStates, tuple([max_angular_velocity] * 4)),
+                typing.cast(JointStates, tuple([-max_angular_velocity] * 4)),
+                typing.cast(JointStates, tuple([+max_angular_velocity] * 4)),
             ),
         )
 
