@@ -38,7 +38,11 @@ def _pack(
 
 
 def pack_main_sim_state(
-    state: MainSimState, attributes: typing.Sequence[str], box: Box
+    state: MainSimState,
+    attributes: typing.Sequence[str],
+    position_box: Box,
+    max_velocity: float,
+    max_angular_velocity: float,
 ) -> Observation:
     """
     Returns a normalized flat numpy float array containing all the values of the specified
@@ -48,12 +52,18 @@ def pack_main_sim_state(
     Attributes must be attributes of an instance of MainSimState.
     An AttributeError is raised if a non valid attribute is passed as argument.
     """
-    normalized = normalize_main_sim_state(state, box)
+    normalized = normalize_main_sim_state(
+        state, position_box, max_velocity, max_angular_velocity
+    )
     return _pack(normalized, attributes)
 
 
 def pack_extra_balls_state(
-    state: ExtraBallsState, attributes: typing.Sequence[str], box: Box
+    state: ExtraBallsState,
+    attributes: typing.Sequence[str],
+    position_box: Box,
+    max_velocity: float,
+    max_angular_velocity: float,
 ) -> Observation:
     """
     Returns a normalized flat numpy float array containing all the values of the specified
@@ -63,7 +73,9 @@ def pack_extra_balls_state(
     Attributes must be attributes of an instance of ExtraBallsState.
     An AttributeError is raised if a non valid attribute is passed as argument.
     """
-    normalized = normalize_extra_balls_state(state, box)
+    normalized = normalize_extra_balls_state(
+        state, position_box, max_velocity, max_angular_velocity
+    )
     return _pack(normalized, attributes)
 
 
@@ -72,6 +84,7 @@ def pack_pressure_robot_state(
     attributes: typing.Sequence[str],
     min_pressures: RobotPressures,
     max_pressures: RobotPressures,
+    max_angular_velocity: float,
 ) -> Observation:
     """
     Returns a normalized flat numpy float array containing all the values of the specified
@@ -80,14 +93,18 @@ def pack_pressure_robot_state(
     Attributes must be attributes of an instance of PressureRobotState.
     An AttributeError is raised if a non valid attribute is passed as argument.
     """
-    normalized = normalize_pressure_robot_state(state, min_pressures, max_pressures)
+    normalized = normalize_pressure_robot_state(
+        state, min_pressures, max_pressures, max_angular_velocity
+    )
     return _pack(normalized, attributes)
 
 
 def pack(
     states: States,
     config: typing.Iterable[typing.Tuple[str, typing.Sequence[str]]],
-    box: typing.Optional[Box] = None,
+    position_box: typing.Optional[Box] = None,
+    max_velocity: typing.Optional[float] = None,
+    max_angular_velocity: typing.Optional[float] = None,
     min_pressures: typing.Optional[RobotPressures] = None,
     max_pressures: typing.Optional[RobotPressures] = None,
 ) -> Observation:
@@ -101,32 +118,75 @@ def pack(
                     "pack: min and max pressures should not"
                     "be none when packing an instance of PressureRobotState"
                 )
+            if max_angular_velocity is None:
+                raise ValueError(
+                    "pack: a maximal angular velocity (max_angular_velocity) "
+                    "should not be None when packing an instance of "
+                    "PressureRobotState"
+                )
             r.append(
                 pack_pressure_robot_state(
                     getattr(states, main_attr),
                     sub_attrs,
                     min_pressures,
                     max_pressures,
+                    max_angular_velocity,
                 )
             )
         elif main_attr == "main_sim":
-            if box is None:
+            if position_box is None:
                 raise ValueError(
                     "pack: box should not"
                     "be none when packing an instance of MainSimState"
                 )
-            r.append(pack_main_sim_state(getattr(states, main_attr), sub_attrs, box))
-        elif main_attr == "extra_balls":
-            if box is None:
+            if max_velocity is None:
                 raise ValueError(
-                    "pack: box should not"
+                    "pack: max_velocity should not"
+                    "be none when packing an instance of ExtraBallsState"
+                )
+            if max_angular_velocity is None:
+                raise ValueError(
+                    "pack: max_angular_velocity should not"
+                    "be none when packing an instance of ExtraBallsState"
+                )
+            r.append(
+                pack_main_sim_state(
+                    getattr(states, main_attr),
+                    sub_attrs,
+                    position_box,
+                    max_velocity,
+                    max_angular_velocity,
+                )
+            )
+        elif main_attr == "extra_balls":
+            if position_box is None:
+                raise ValueError(
+                    "pack: position_box should not"
+                    "be none when packing an instance of ExtraBallsState"
+                )
+            if max_velocity is None:
+                raise ValueError(
+                    "pack: max_velocity should not"
+                    "be none when packing an instance of ExtraBallsState"
+                )
+            if max_angular_velocity is None:
+                raise ValueError(
+                    "pack: max_angular_velocity should not"
                     "be none when packing an instance of ExtraBallsState"
                 )
             extra_balls_sets: typing.Sequence[ExtraBallsState] = getattr(
                 states, main_attr
             )
             for extra_balls_set in extra_balls_sets:
-                r.append(pack_extra_balls_state(extra_balls_set, sub_attrs, box))
+                r.append(
+                    pack_extra_balls_state(
+                        extra_balls_set,
+                        sub_attrs,
+                        position_box,
+                        max_velocity,
+                        max_angular_velocity,
+                    )
+                )
         else:
             raise AttributeError(
                 "hysr_types.States does not have attribute: {}".format(main_attr)
@@ -139,17 +199,27 @@ class ObservationFactory:
     def __init__(
         self,
         config: typing.Iterable[typing.Tuple[str, typing.Sequence[str]]],
-        box: Box,
+        position_box: Box,
+        max_velocity: float,
+        max_angular_velocity: float,
         min_pressures: typing.Optional[RobotPressures] = None,
         max_pressures: typing.Optional[RobotPressures] = None,
     ) -> None:
 
         self._config = config
-        self._box = box
+        self._box = position_box
+        self._max_velocity = max_velocity
+        self._max_angular_velocity = max_angular_velocity
         self._min_pressures = min_pressures
         self._max_pressures = max_pressures
 
     def get(self, states: States) -> Observation:
         return pack(
-            states, self._config, self._box, self._min_pressures, self._max_pressures
+            states,
+            self._config,
+            self._box,
+            self._max_velocity,
+            self._max_angular_velocity,
+            self._min_pressures,
+            self._max_pressures,
         )

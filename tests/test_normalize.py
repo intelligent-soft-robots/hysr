@@ -26,14 +26,38 @@ def test_normalize():
         assert normalize.normalize((1.5, 4.1), (1.0, 2.0), (2.0, 4.0))
 
 
+def test_denormalize():
+    """Testing denormalize method"""
+
+    v = (20.0, 100.0)
+    min_ = (14.0, 99.0)
+    max_ = (31.0, 133)
+
+    normalized = normalize.normalize(v, min_, max_)
+    denormalized = normalize.denormalize(normalized, min_, max_)
+
+    assert denormalized == v
+
+
 def test_normalize_items():
     """
     Testing: normalize_point3D, normalize_orientation3D,
     normalize_cartesian_pose, normalize_robot_pressures
     """
 
-    box = ((1.0, 2.0), (2.0, 4.0))
-    assert normalize.normalize_point3D((1.5, 3.0), box) == (0.5, 0.5)
+    box = ((1.0, 2.0, 2.0), (2.0, 4.0, 6.0))
+    assert normalize.normalize_point3D((1.5, 3.0, 4.0), position_box=box) == (
+        0.5,
+        0.5,
+        0.5,
+    )
+
+    max_velocity = 2.0
+    assert normalize.normalize_point3D((2.0, 1.0, 0.0), max_velocity=max_velocity) == (
+        1.0,
+        0.5,
+        0.0,
+    )
 
     for _ in range(20):
         orientation = typing.cast(
