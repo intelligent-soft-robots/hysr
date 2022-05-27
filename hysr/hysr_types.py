@@ -63,6 +63,8 @@ RobotPressures = typing.Tuple[
 Observation = npt.NDArray[npt.Shape["*"], npt.Float32]
 """ A flat array of floats with normalized values, suitable to use as observation in ml APIs """
 
+PackableState = typing.Literal["main_sim", "pressure_robot", "extra_balls"]
+
 
 @dataclass
 class MainSimState:

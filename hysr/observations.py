@@ -1,3 +1,4 @@
+import itertools
 import typing
 import numpy as np
 
@@ -9,6 +10,7 @@ from .hysr_types import (
     MainSimState,
     States,
     Observation,
+    PackableState,
 )
 
 from .normalize import (
@@ -38,26 +40,14 @@ def _pack(
                 values.append(0.0)
         elif attr == "contacts":
             values.extend([1.0 if c else 0.0 for c in getattr(state, attr)])
-        elif attr in ("iteration","time_stamp"):
+        elif attr in ("iteration", "time_stamp"):
             raise ValueError("pack: {} not accepted as attribute to pack".format(attr))
         else:
             attr_value = getattr(state, attr)
-            if type(attr_value[0])==tuple:
-                # tuple of tuples
-                def _concatenate(
-                        tuples:typing.Tuple[typing.Tuple,...],
-                        index:int=0,
-                        target:typing.List=[]
-                ):
-                    target.extend(list(tuples[index]))
-                    index+=1
-                    if index==len(tuples):
-                        return target
-                    return _concatenate(tuples,index,target)
+            if type(attr_value[0]) == tuple:
                 values.extend(
                     typing.cast(
-                        Observation,
-                        tuple(_concatenate(attr_value))
+                        Observation, tuple(itertools.chain.from_iterable(attr_value))
                     )
                 )
             else:
@@ -129,13 +119,25 @@ def pack_pressure_robot_state(
 
 def pack(
     states: States,
-    config: typing.Iterable[typing.Tuple[str, typing.Sequence[str]]],
+    config: typing.Iterable[typing.Tuple[PackableState, typing.Sequence[str]]],
     position_box: typing.Optional[Box] = None,
     max_velocity: typing.Optional[float] = None,
     max_angular_velocity: typing.Optional[float] = None,
     min_pressures: typing.Optional[RobotPressures] = None,
     max_pressures: typing.Optional[RobotPressures] = None,
 ) -> Observation:
+    """
+    Cast an instance of States to a numpy array of normalized values (floats).
+    The list of attributes to normalized are given by the "config" argument:
+    for each attributes of the States class (i.e. main_sim, pressure_robot and
+    extra_balls) a list of corresponding sub-attributes may be provided (e.g. "ball_positions",
+    "observed_pressures, etc".
+    For example, the configuration:
+      ( ("main_sim",("ball_position","ball_velocity")) , ("pressure_robot",("observed_pressures",)) )
+    will request to included in the returned array the normalized values of the ball_position and
+    "ball_velocity" of main_sim, an the observed_pressures attributes of pressure_robot
+    (i.e. a 3+3+8 sized array of float)
+    """
 
     r: typing.List[Observation] = []
 
@@ -220,13 +222,17 @@ def pack(
                 "hysr_types.States does not have attribute: {}".format(main_attr)
             )
 
-    return np.concatenate(tuple(*r), axis=0, dtype=np.float32)
+    return np.concatenate(tuple(r), axis=0, dtype=np.float32)
 
 
 class ObservationFactory:
+    """
+    Convenient class for applying the "pack" function.
+    """
+
     def __init__(
         self,
-        config: typing.Iterable[typing.Tuple[str, typing.Sequence[str]]],
+        config: typing.Iterable[typing.Tuple[PackableState, typing.Sequence[str]]],
         position_box: Box,
         max_velocity: float,
         max_angular_velocity: float,
