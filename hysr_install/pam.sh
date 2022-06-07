@@ -38,7 +38,7 @@ treep --clone-https PAM_MUJOCO
 colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=Release -DPAM_INSTALL=ON -DBUILD_TESTING=OFF -DPYBIND11_TEST=OFF --no-warn-unused-cli
 
 
-# If not there are not already present, add commands
+# If not they are not already present, add commands
 # to update the $PATH and $LD_LIBRARY_PATH
 # environment variables to ~/.bashrc
 # (to append ~/.mpi-is/pam/install/bin and
