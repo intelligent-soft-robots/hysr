@@ -46,17 +46,17 @@ def test_normalize_items():
     """
 
     box = ((1.0, 2.0, 2.0), (2.0, 4.0, 6.0))
-    assert normalize.normalize_point3D((1.5, 3.0, 4.0), position_box=box) == (
+    assert normalize.normalize_position((1.5, 3.0, 4.0), box) == (
         0.5,
         0.5,
         0.5,
     )
 
     max_velocity = 2.0
-    assert normalize.normalize_point3D((2.0, 1.0, 0.0), max_velocity=max_velocity) == (
+    assert normalize.normalize_velocity_vector((2.0, 1.0, 0.0), max_velocity) == (
         1.0,
+        0.75,
         0.5,
-        0.0,
     )
 
     for _ in range(20):
@@ -79,7 +79,7 @@ def test_normalize_items():
     assert all([o == 0.5 for o in normalized[1]])
 
     joints = (0, math.pi, -math.pi, 2 * -math.pi)
-    normalized = normalize.normalize_joint_states(joints)
+    normalized = normalize.normalize_joint_states_position(joints)
     assert normalized[0] == 0.5
     assert normalized[1] == 0.75
     assert normalized[2] == 0.25

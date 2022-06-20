@@ -106,33 +106,20 @@ def denormalize(
     return typing.cast(NumberTuple, tuple(denormalized))
 
 
-def normalize_point3D(
-    point: Point3D,
-    position_box: typing.Optional[Box] = None,
-    max_velocity: typing.Optional[float] = None,
-) -> Point3D:
+def normalize_position(point: Point3D, position_box: Box) -> Point3D:
     """
-    Normalize the coordinates. If a 3d point, the Box argument
-    should not be null, and the point should be in the box.
-    If a 3d velocity vector, then the max velocity should not be None
-    and should be positive.
+    Normalize the coordinates. Assumes the point is located in the box.
     """
-    if position_box is None and max_velocity is None:
-        raise ValueError(
-            "failed to normalize a 3d point: "
-            "either a position box or a max velocity "
-            "should be provided as argument."
-        )
-    if position_box is not None:
-        return typing.cast(Point3D, normalize(point, position_box[0], position_box[1]))
-    if max_velocity is not None:
-        min_ = (-max_velocity, -max_velocity, -max_velocity)
-        max_ = (+max_velocity, +max_velocity, +max_velocity)
-        return typing.cast(Point3D, normalize(point, min_, max_))
-    # will never happen. The last "if" is there
-    # only to help mypy (which complains about max_velocity
-    # being possibly None)
-    return (0.0, 0.0, 0.0)
+    return typing.cast(Point3D, normalize(point, position_box[0], position_box[1]))
+
+
+def normalize_velocity_vector(point: Point3D, max_velocity: float) -> Point3D:
+    """
+    Normalize the velocity vector. max_velocity should be positive.
+    """
+    min_ = (-max_velocity, -max_velocity, -max_velocity)
+    max_ = (+max_velocity, +max_velocity, +max_velocity)
+    return typing.cast(Point3D, normalize(point, min_, max_))
 
 
 def normalize_orientation3D(orientation: Orientation3D) -> Orientation3D:
@@ -140,8 +127,8 @@ def normalize_orientation3D(orientation: Orientation3D) -> Orientation3D:
     Normalize the orientation, i.e. cast
     its values from [-1,1] to [0,1]
     """
-    min_ = typing.cast(Orientation3D, tuple([-1.0] * 9))
-    max_ = typing.cast(Orientation3D, tuple([+1.0] * 9))
+    min_ = typing.cast(Orientation3D, tuple((-1.0,) * 9))
+    max_ = typing.cast(Orientation3D, tuple((+1.0,) * 9))
     return typing.cast(Orientation3D, normalize(orientation, min_, max_))
 
 
@@ -154,37 +141,40 @@ def normalize_cartesian_pose(
     (see normalize_orientation3D)
     """
     return (
-        typing.cast(Point3D, normalize_point3D(cartesian_pose[0], position_box)),
+        typing.cast(Point3D, normalize_position(cartesian_pose[0], position_box)),
         typing.cast(Orientation3D, normalize_orientation3D(cartesian_pose[1])),
     )
 
 
-def normalize_joint_states(
-    joint_states: JointStates, max_angular_velocity: typing.Optional[float] = None
+def normalize_joint_states_position(joint_states: JointStates) -> JointStates:
+    """
+    casts all values from [-2pi,2pi] to [0.,1.]
+    """
+    return typing.cast(
+        JointStates,
+        normalize(
+            joint_states,
+            typing.cast(JointStates, tuple([-2.0 * math.pi] * 4)),
+            typing.cast(JointStates, tuple([+2.0 * math.pi] * 4)),
+        ),
+    )
+
+
+def normalize_joint_states_velocity(
+    joint_states: JointStates, max_angular_velocity: float
 ) -> JointStates:
     """
-    If max_angular_velocity is None (i.e. joints position in radians),
-    casts all values from [-2pi,2pi] to [0.,1.]. Else (i.e. joint velocity
-    in radians per second), cast to [0,max_angular_velocity]
+    cast values to [0,max_angular_velocity],
+    with max_angular_velocity in radians per second.
     """
-    if max_angular_velocity is None:
-        return typing.cast(
-            JointStates,
-            normalize(
-                joint_states,
-                typing.cast(JointStates, tuple([-2.0 * math.pi] * 4)),
-                typing.cast(JointStates, tuple([+2.0 * math.pi] * 4)),
-            ),
-        )
-    else:
-        return typing.cast(
-            JointStates,
-            normalize(
-                joint_states,
-                typing.cast(JointStates, tuple([-max_angular_velocity] * 4)),
-                typing.cast(JointStates, tuple([+max_angular_velocity] * 4)),
-            ),
-        )
+    return typing.cast(
+        JointStates,
+        normalize(
+            joint_states,
+            typing.cast(JointStates, tuple([-max_angular_velocity] * 4)),
+            typing.cast(JointStates, tuple([+max_angular_velocity] * 4)),
+        ),
+    )
 
 
 def normalize_joint_pressures(
@@ -230,10 +220,8 @@ def normalize_pressure_robot_state(
     Max velocity in radians per second.
     """
     return PressureRobotState(
-        normalize_joint_states(state.joint_positions),
-        normalize_joint_states(
-            state.joint_velocities, max_angular_velocity=max_angular_velocity
-        ),
+        normalize_joint_states_position(state.joint_positions),
+        normalize_joint_states_velocity(state.joint_velocities, max_angular_velocity),
         normalize_robot_pressures(
             state.desired_pressures, min_pressures, max_pressures
         ),
@@ -256,19 +244,17 @@ def normalize_extra_balls_state(
     """
     return ExtraBallsState(
         [
-            normalize_point3D(ball_position, position_box=position_box)
+            normalize_position(ball_position, position_box)
             for ball_position in state.ball_positions
         ],
         [
-            normalize_point3D(ball_velocity, max_velocity=max_velocity)
+            normalize_velocity_vector(ball_velocity, max_velocity)
             for ball_velocity in state.ball_velocities
         ],
         copy.deepcopy(state.contacts),
-        normalize_joint_states(state.joint_positions),
-        normalize_joint_states(
-            state.joint_velocities, max_angular_velocity=max_angular_velocity
-        ),
-        normalize_point3D(state.racket_cartesian, position_box=position_box),
+        normalize_joint_states_position(state.joint_positions),
+        normalize_joint_states_velocity(state.joint_velocities, max_angular_velocity),
+        normalize_position(state.racket_cartesian, position_box),
         state.iteration,
         state.time_stamp,
     )
@@ -284,12 +270,10 @@ def normalize_main_sim_state(
     Cast all values to [0.,1.]
     """
     return MainSimState(
-        normalize_point3D(state.ball_position, position_box=position_box),
-        normalize_point3D(state.ball_velocity, max_velocity=max_velocity),
-        normalize_joint_states(state.joint_positions),
-        normalize_joint_states(
-            state.joint_velocities, max_angular_velocity=max_angular_velocity
-        ),
+        normalize_position(state.ball_position, position_box),
+        normalize_velocity_vector(state.ball_velocity, max_velocity),
+        normalize_joint_states_position(state.joint_positions),
+        normalize_joint_states_velocity(state.joint_velocities, max_angular_velocity),
         normalize_cartesian_pose(state.racket_cartesian, position_box=position_box),
         state.contact,
         state.iteration,

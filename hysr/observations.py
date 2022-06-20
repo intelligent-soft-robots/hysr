@@ -145,7 +145,7 @@ def pack(
         if main_attr == "pressure_robot":
             if min_pressures is None or max_pressures is None:
                 raise ValueError(
-                    "pack: min and max pressures should not"
+                    "pack: min and max pressures should not "
                     "be none when packing an instance of PressureRobotState"
                 )
             if max_angular_velocity is None:
@@ -166,17 +166,17 @@ def pack(
         elif main_attr == "main_sim":
             if position_box is None:
                 raise ValueError(
-                    "pack: box should not"
+                    "pack: box should not "
                     "be none when packing an instance of MainSimState"
                 )
             if max_velocity is None:
                 raise ValueError(
-                    "pack: max_velocity should not"
+                    "pack: max_velocity should not "
                     "be none when packing an instance of ExtraBallsState"
                 )
             if max_angular_velocity is None:
                 raise ValueError(
-                    "pack: max_angular_velocity should not"
+                    "pack: max_angular_velocity should not "
                     "be none when packing an instance of ExtraBallsState"
                 )
             r.append(
@@ -191,17 +191,17 @@ def pack(
         elif main_attr == "extra_balls":
             if position_box is None:
                 raise ValueError(
-                    "pack: position_box should not"
+                    "pack: position_box should not "
                     "be none when packing an instance of ExtraBallsState"
                 )
             if max_velocity is None:
                 raise ValueError(
-                    "pack: max_velocity should not"
+                    "pack: max_velocity should not "
                     "be none when packing an instance of ExtraBallsState"
                 )
             if max_angular_velocity is None:
                 raise ValueError(
-                    "pack: max_angular_velocity should not"
+                    "pack: max_angular_velocity should not "
                     "be none when packing an instance of ExtraBallsState"
                 )
             extra_balls_sets: typing.Sequence[ExtraBallsState] = getattr(
