@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import typing
+import nptyping as npt
 from typing import Optional
 import context
 
@@ -32,6 +33,9 @@ AcceptedNbOfBalls = typing.Literal[3, 10, 20, 50, 100]
 Point3D = typing.Tuple[float, float, float]
 """ For 3d position or 3d velocities  """
 
+Box = typing.Tuple[Point3D, Point3D]
+""" 3d rectangle, first item: min values, second item: max values"""
+
 Orientation3D = typing.Tuple[
     float, float, float, float, float, float, float, float, float
 ]
@@ -55,6 +59,11 @@ RobotPressures = typing.Tuple[
     JointPressures, JointPressures, JointPressures, JointPressures
 ]
 """ Pressures of a robot. Can be used for observed / desired pressures or pressure commands"""
+
+Observation = npt.NDArray[npt.Shape["*"], npt.Float32]
+""" A flat array of floats with normalized values, suitable to use as observation in ml APIs """
+
+PackableState = typing.Literal["main_sim", "pressure_robot", "extra_balls"]
 
 
 @dataclass
@@ -165,12 +174,8 @@ class PressureRobotState:
 
     joint_positions: JointStates = (0.0, 0.0, 0.0, 0.0)
     joint_velocities: JointStates = (0.0, 0.0, 0.0, 0.0)
-    desired_pressures: typing.Tuple[
-        JointPressures, JointPressures, JointPressures, JointPressures
-    ] = ((0, 0), (0, 0), (0, 0), (0, 0))
-    observed_pressures: typing.Tuple[
-        JointPressures, JointPressures, JointPressures, JointPressures
-    ] = ((0, 0), (0, 0), (0, 0), (0, 0))
+    desired_pressures: RobotPressures = ((0, 0), (0, 0), (0, 0), (0, 0))
+    observed_pressures: RobotPressures = ((0, 0), (0, 0), (0, 0), (0, 0))
     iteration: int = -1
     time_stamp: int = -1
 
