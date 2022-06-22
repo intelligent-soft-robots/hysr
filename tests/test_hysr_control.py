@@ -1,3 +1,5 @@
+import pathlib
+import tempfile
 import typing
 import pytest
 import pam_mujoco
@@ -75,6 +77,89 @@ def hysr_control_instance(request) -> typing.Generator[hysr.HysrControl, None, N
 
     # stopping the parallel bursting threads
     hysr_control.stop()
+
+
+@pytest.fixture
+def get_factory_classes(
+    request, scope="function"
+) -> typing.Generator[
+    typing.Tuple[
+        hysr.hysr_types.FactoryClass,
+        hysr.hysr_types.FactoryClass,
+        hysr.hysr_types.FactoryClass,
+    ],
+    None,
+    None,
+]:
+    """
+    Yields a tuple of 3 instances of FactoryClass, suitable to use as arguments to
+    the function hysr_control_factory.
+    """
+
+    mujoco_time_step = 0.002
+
+    pressure_robot: hysr.hysr_types.FactoryClass = (
+        "SimPressureRobot",  # the class to instantiate
+        [  # args to instantiate the class
+            pam_mujoco.RobotType.PAMY2,
+            _pressure_robot_mujoco_id_g,
+            _pressure_robot_segment_id_g,
+            hysr.Defaults.pam_config[pam_mujoco.RobotType.PAMY2]["sim"],
+            hysr.Defaults.muscle_model,
+            False,
+            mujoco_time_step,
+        ],
+        {},  # kwargs to instantiate the class
+    )
+
+    main_sim: hysr.hysr_types.FactoryClass = (
+        "MainSim",
+        [
+            pam_mujoco.RobotType.PAMY2,
+            False,
+            hysr.Scene.get_defaults(),
+            hysr.Defaults.trajectory_getter,
+        ],
+        {"contact": pam_mujoco.ContactTypes.racket1},
+    )
+
+    extra_balls = hysr.hysr_types.FactoryClass = (
+        "ExtraBallsSet",
+        [1, 20, False, hysr.Scene.get_defaults(), hysr.Defaults.trajectory_getter],
+        {"contact": pam_mujoco.ContactTypes.racket1},
+    )
+
+    yield (pressure_robot, main_sim, extra_balls)
+
+
+# flake8: noqa: E501 (line too long)
+@pytest.fixture
+def get_toml_config(request, scope="function") -> typing.Generator[str, None, None]:
+
+    toml_string = """
+
+    imports = ["pam_mujoco","hysr"]
+    algorithm_time_step = 0.01
+    mujoco_time_step = 0.002
+
+    [pressure_robot]
+    class = "hysr.SimPressureRobot"
+    args = "[pam_mujoco.RobotType.PAMY2,'tests_pressure_robot_mid','tests_pressure_robot_sid',hysr.Defaults.pam_config[pam_mujoco.RobotType.PAMY2]['sim'],hysr.Defaults.muscle_model,False,0.002]"
+
+    [main_sim]
+    class = "hysr.MainSim"
+    args = "[pam_mujoco.RobotType.PAMY2,False,hysr.Scene.get_defaults(),hysr.Defaults.trajectory_getter]"
+    kwargs = "{'contact':pam_mujoco.ContactTypes.racket1}"
+
+    [extra_balls]
+      [extra_balls.set1]
+      class = 'hysr.ExtraBallsSet'
+      args = "[1,20,False,hysr.Scene.get_defaults(),hysr.Defaults.trajectory_getter]"
+      kwargs = "{'contact':pam_mujoco.ContactTypes.racket1}"
+
+    """
+
+    yield toml_string
 
 
 def test_align_robots(run_pam_mujocos, hysr_control_instance):
@@ -220,3 +305,141 @@ def test_instant_reset(run_pam_mujocos, hysr_control_instance):
     )
     for eb1, eb2 in zip(reset_states.extra_balls, initial_states.extra_balls):
         assert eb1.joint_positions != pytest.approx(eb2.joint_positions, 0.01)
+
+
+def test_hysr_control_factory(run_pam_mujocos, get_factory_classes):
+    """
+    Test hysr_control_factory succeed in returning an instance of HysrControl.
+    """
+
+    algo_time_step = 0.01
+    mujoco_time_step = 0.002
+
+    pressure_robot, main_sim, extra_balls = get_factory_classes
+
+    hysr_control: hysr.Hysr_control = (  # noqa: F841 (variable not used)
+        hysr.hysr_control_factory(
+            pressure_robot, main_sim, (extra_balls,), mujoco_time_step, algo_time_step
+        )
+    )
+
+
+def test_hysr_control_factory_wrong_subclass(run_pam_mujocos, get_factory_classes):
+    """
+    Test hysr_control_factory raises an exception when requested to instantiate classes
+    of the wrong type.
+    """
+
+    algo_time_step = 0.01
+    mujoco_time_step = 0.002
+
+    pressure_robot, main_sim, extra_balls = get_factory_classes
+
+    with pytest.raises(ValueError):
+
+        hysr_control: hysr.Hysr_control = (  # noqa: F841 (variable not used)
+            hysr.hysr_control_factory(
+                main_sim,  # wrong subclass !
+                main_sim,
+                (extra_balls,),
+                mujoco_time_step,
+                algo_time_step,
+            )
+        )
+
+
+def test_hysr_control_factory_wrong_kwargs(run_pam_mujocos, get_factory_classes):
+    """
+    Test hysr_control_factory raises an exception when requested to instantiate classes
+    using incorrect kwargs
+    """
+
+    algo_time_step = 0.01
+    mujoco_time_step = 0.002
+
+    pressure_robot, _, extra_balls = get_factory_classes
+
+    main_sim_wrong_kwargs: hysr.hysr_types.FactoryClass = [
+        "MainSim",
+        [
+            pam_mujoco.RobotType.PAMY2,
+            False,
+            hysr.Scene.get_defaults(),
+            hysr.Defaults.trajectory_getter,
+        ],
+        {
+            "failed_kwargs": pam_mujoco.ContactTypes.racket1
+        },  # incorrect kwargs argument !
+    ]
+
+    with pytest.raises(ValueError):
+
+        hysr_control: hysr.Hysr_control = (  # noqa: F841 (variable not used)
+            hysr.hysr_control_factory(
+                pressure_robot,
+                main_sim_wrong_kwargs,  # !
+                (extra_balls,),
+                mujoco_time_step,
+                algo_time_step,
+            )
+        )
+
+
+def test_hysr_control_factory_wrong_args(run_pam_mujocos, get_factory_classes):
+    """
+    Test hysr_control_factory raises an exception when requested to instantiate classes
+    using incorrect args
+    """
+
+    algo_time_step = 0.01
+    mujoco_time_step = 0.002
+
+    pressure_robot, main_sim, extra_balls = get_factory_classes
+
+    main_sim_wrong_args: hysr.hysr_types.FactoryClass = [
+        "MainSim",
+        [
+            pam_mujoco.RobotType.PAMY2,
+            False,
+            False,  # incorrect extra arg !
+            hysr.Scene.get_defaults(),
+            hysr.Defaults.trajectory_getter,
+        ],
+        {"contact": pam_mujoco.ContactTypes.racket1},
+    ]
+
+    with pytest.raises(ValueError):
+
+        hysr_control: hysr.Hysr_control = (  # noqa: F841 (variable not used)
+            hysr.hysr_control_factory(
+                pressure_robot,
+                main_sim_wrong_args,  # !
+                (extra_balls,),
+                mujoco_time_step,
+                algo_time_step,
+            )
+        )
+
+
+def test_hysr_control_from_toml_content(run_pam_mujocos, get_toml_config):
+
+    toml_content = get_toml_config
+
+    hysr_control: hysr.HysrControl = (
+        hysr.hysr_control_from_toml_content(  # noqa: F841 (variable not used)
+            toml_content
+        )
+    )
+
+
+def test_hysr_control_from_toml_file(run_pam_mujocos, get_toml_config):
+
+    toml_content = get_toml_config
+
+    with tempfile.NamedTemporaryFile() as tmp:
+        p = pathlib.Path(tmp.name)
+        with open(p, "w") as toml_file:
+            toml_file.write(toml_content)
+        hysr_control: hysr.HysrControl = hysr.hysr_control_from_toml_file(
+            p
+        )  # noqa: F841 (variable not used)

@@ -1,3 +1,8 @@
+import pathlib
+import toml
+import collections
+import inspect
+import importlib
 import typing
 import functools
 import o80
@@ -384,3 +389,280 @@ class HysrControl:
         """
         self.to_robot_position(starting_posture, position_controller_factory)
         self._frequency_controller.reset()
+
+
+ExpectedSuperclass = typing.TypeVar("ExpectedSuperclass", bound=object)
+
+
+def _get_class(class_path: str) -> typing.Type:
+
+    if "." not in class_path:
+        try:
+            class_ = globals()[class_path]
+        except KeyError:
+            raise ValueError(
+                f"class {class_path} could not be found in the global scope"
+            )
+
+    parts = class_path.split(".")
+    package = parts[0]
+    try:
+        package = globals()[package]
+    except KeyError:
+        raise ValueError(
+            f"package {package} (requested for class {class_path}) could not be found in the global scope"
+        )
+
+    module = package
+    for module_ in parts[1:-1]:
+        try:
+            module = getattr(module, module_)
+        except AttributeError:
+            raise ValueError(
+                f"package/module {module_} (requested for class {class_path}) could not be found in {module}"
+            )
+    try:
+        class_ = getattr(module, parts[-1])
+    except AttributeError:
+        raise ValueError(
+            f"class {parts[-1]} (provided path: {class_path}) could not be found"
+        )
+
+    return class_
+
+
+def _instantiate(
+    factory_class: hysr_types.FactoryClass,
+    expected_superclass: typing.Type[ExpectedSuperclass],
+) -> ExpectedSuperclass:
+
+    class_name, args, kwargs = factory_class
+
+    # getting the class from its path
+    # e.g. MainSim from 'hysr.MainSim'
+    class_ = _get_class(class_name)
+
+    # checking the class is indeed a class
+    if not inspect.isclass(class_):
+        raise ValueError(f"{class_name} is not a class (it is a {type(class_name)})")
+
+    # checking the class is a subclass
+    if not issubclass(class_, expected_superclass):
+        raise ValueError(
+            f"{class_name} provided as the subclass to use of "
+            f"{expected_superclass}, but {class_name} is not a subclass of "
+            f"{expected_superclass}"
+        )
+
+    # reading the arguments requested by class_
+    parameters = inspect.signature(class_.__init__).parameters
+    nb_all_args = len(parameters) - 1  # -1: self argument
+    valid_kwargs = {
+        k: v.default for k, v in parameters.items() if v.default != inspect._empty
+    }
+    nb_kwargs = len(valid_kwargs)
+    nb_args = nb_all_args - nb_kwargs
+
+    # checking we have the expected number of args
+    if nb_args != len(args):
+        raise ValueError(
+            f"the class {class_name} request {nb_args} "
+            f"arguments, but {len(args)} provided"
+        )
+
+    # checking we have the expected of kwargs
+    if nb_kwargs != len(kwargs):
+        raise ValueError(
+            f"the class {class_name} request {nb_kwargs} "
+            f"arguments, but {len(kwargs)} provided"
+        )
+
+    # checking all kwargs are accepted by class_
+    for kwarg_name in kwargs.keys():
+        valid = list(valid_kwargs.keys())
+        if kwarg_name not in valid:
+            raise ValueError(f"{kwarg_name} is not a known kwarg name for {class_name}")
+
+    # all seems ok, instantiating
+    try:
+        instance = class_(*args, **kwargs)
+    except Exception as e:
+        raise Exception(f"failed to instantiate {class_name}: {e}")
+
+    return instance
+
+
+def hysr_control_factory(
+    pressure_robot: hysr_types.FactoryClass,
+    main_sim: hysr_types.FactoryClass,
+    extra_balls: typing.Iterable[hysr_types.FactoryClass],
+    mujoco_time_step: float,
+    algorithm_time_step: float,
+) -> HysrControl:
+    """
+    Returns an instance of HysrControl based on the provided
+    arguments.
+    """
+    return HysrControl(
+        _instantiate(pressure_robot, PressureRobot),
+        _instantiate(main_sim, MainSim),
+        [_instantiate(extra_ball, ExtraBallsSet) for extra_ball in extra_balls],
+        mujoco_time_step,
+        algorithm_time_step,
+    )
+
+
+def hysr_control_from_toml_content(toml_string: str) -> HysrControl:
+    """
+    Instantiate HysrControl based on toml configuration.
+    toml_string should be toml formated content, with at least the keys:
+    - 'pressure_robot', 'main_sim': should have at least the keys 'module' and
+      the key 'class' (string content) and optionally the keys 'args' and 'kwargs'.
+      The value for 'args' should be either a list or a string. If the latest, the
+      string should evaluate to a list. The value for 'kwargs' should be a dict or a
+      string. If the latest, it should evaluate to a dict. Instances will be created
+      by importing the class from the module, and instantiating the class passing the
+      provided args and kargs. The classes should be subclasses of hysr.PressureRobot
+      and hysr.MainSim.
+    - 'algorithm_time_step' and "mujoco_time_step": should be float (in seconds)
+    Optional are the keys 'extra_balls' and 'imports':
+    - 'extra_balls': If provided, the value for 'extra_balls'
+      should be a dict, with each entry providing the configuration required to instantiate
+      hysr.ExtraBalls (or a subclass of it). The key of each entry is arbitrary and will
+      not be used.
+    - 'imports': list of packages (as strings) to import before constructing the instances. May be useful
+      if the args and kwargs are string to evaluate.
+    """
+
+    try:
+        t = toml.loads(toml_string)
+    except toml.TomlDecodeError as tde:
+        raise ValueError(f"hysr control factory: invalid toml content: {tde}")
+
+    def _read_factory_class(
+        toml_content: typing.Dict[str, typing.Any], key: str
+    ) -> hysr_types.FactoryClass:
+        if key not in toml_content.keys():
+            raise ValueError(
+                f"hysr control factory: failed to find required key {key} in toml configuration"
+            )
+        d = toml_content[key]
+        required_keys = ("class",)
+        optional_keys = ("args", "kwargs")
+        for rk in required_keys:
+            if rk not in d.keys():
+                raise ValueError(
+                    f"hysr control factory: failed to find required key {key}/{rk} in toml configuration"
+                )
+        for k in d.keys():
+            if k not in required_keys + optional_keys:
+                raise ValueError(
+                    f"hysr control factory: the toml configuration has an unexpected key: {key}/{k}"
+                )
+        class_ = str(d["class"])
+        if "args" in d.keys():
+            if isinstance(d["args"], str):
+                try:
+                    args = eval(d["args"])
+                except NameError as ne:
+                    raise ValueError(
+                        f"hysr_control_factory: failed to evaluate args {d['args']}: {ne} "
+                    )
+            else:
+                args = d["args"]
+            if not isinstance(args, collections.abc.Sequence):
+                raise ValueError(
+                    f"hysr control factory: the toml configuration has an unexpected value for: {key}/args (should be a sequence)"
+                )
+        else:
+            args = []
+        if "kwargs" in d.keys():
+            if isinstance(d["kwargs"], str):
+                kwargs = eval(d["kwargs"])
+            else:
+                kwargs = d["kwargs"]
+        else:
+            kwargs = {}
+
+        return (class_, args, kwargs)
+
+    # importing requested imports, if any
+    if "imports" in t.keys():
+        imports = t["imports"]
+        if not isinstance(imports, collections.abc.Iterable):
+            raise ValueError(
+                f"hysr control factory: the toml configuration has an unexpected value for imports (should be iterable of string)"
+            )
+        for import_ in imports:
+            try:
+                imported = importlib.import_module(str(import_))
+            except ModuleNotFoundError as e:
+                raise ModuleNotFoundError(
+                    f"hysr control factory: failed to import module {import_}: " f"{e}"
+                )
+            globals()[import_] = imported
+
+    # reading from toml the values for algo time step
+    # and mujoco time step
+    for k in ("algorithm_time_step", "mujoco_time_step"):
+        if k not in t.keys():
+            raise ValueError(
+                f"hysr control factory: the toml configuration does not provide the required key: '{k}'"
+            )
+    try:
+        algorithm_time_step = float(t["algorithm_time_step"])
+    except TypeError:
+        raise ValueError(
+            f"hysr control factory: the toml configuration provide an invalid value for 'algorithm_time_step' (should be a float)"
+        )
+    try:
+        mujoco_time_step = float(t["mujoco_time_step"])
+    except TypeError:
+        raise ValueError(
+            f"hysr control factory: the toml configuration provide an invalid value for 'mujoco_time_step' (should be a float)"
+        )
+
+    # reading from toml the configuration for the pressure
+    # robot and the main simulation
+    pressure_robot = _read_factory_class(t, "pressure_robot")
+    main_sim = _read_factory_class(t, "main_sim")
+
+    # reading from toml the configurations for the extra balls
+    if "extra_balls" in t.keys():
+        if not isinstance(t["extra_balls"], dict):
+            raise ValueError(
+                f"hysr control factory: the toml configuration for 'extra_balls' should be a dictionary"
+            )
+        extra_balls = [
+            _read_factory_class(t["extra_balls"], key)
+            for key in t["extra_balls"].keys()
+        ]
+    else:
+        extra_balls = []
+
+    return hysr_control_factory(
+        pressure_robot, main_sim, extra_balls, mujoco_time_step, algorithm_time_step
+    )
+
+
+def hysr_control_from_toml_file(file_path: pathlib.Path) -> HysrControl:
+    """
+    Calls hysr_control_from_toml_content. Content of 'file_path' should
+    be toml formatted.
+    """
+
+    if not file_path.is_file():
+        raise FileNotFoundError(
+            f"hysr control factory: failed to find toml configuration file: {file_path}"
+        )
+
+    content = file_path.read_text()
+
+    try:
+        hysr_control = hysr_control_from_toml_content(content)
+    except ValueError as ve:
+        raise ValueError(
+            f"failed to use configuration file {file_path} to instantiate HysrControl: {ve}"
+        )
+
+    return hysr_control
