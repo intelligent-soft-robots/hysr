@@ -28,3 +28,4 @@ from .hysr_control import (
     hysr_control_from_toml_file,
 )
 from . import rewards
+from . import config
