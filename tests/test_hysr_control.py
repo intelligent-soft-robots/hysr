@@ -99,7 +99,7 @@ def get_factory_classes(
     mujoco_time_step = 0.002
 
     pressure_robot: hysr.hysr_types.FactoryClass = (
-        "SimPressureRobot",  # the class to instantiate
+        "hysr.SimPressureRobot",  # the class to instantiate
         [  # args to instantiate the class
             pam_mujoco.RobotType.PAMY2,
             _pressure_robot_mujoco_id_g,
@@ -113,7 +113,7 @@ def get_factory_classes(
     )
 
     main_sim: hysr.hysr_types.FactoryClass = (
-        "MainSim",
+        "hysr.MainSim",
         [
             pam_mujoco.RobotType.PAMY2,
             False,
@@ -124,7 +124,7 @@ def get_factory_classes(
     )
 
     extra_balls = hysr.hysr_types.FactoryClass = (
-        "ExtraBallsSet",
+        "hysr.ExtraBallsSet",
         [1, 20, False, hysr.Scene.get_defaults(), hysr.Defaults.trajectory_getter],
         {"contact": pam_mujoco.ContactTypes.racket1},
     )

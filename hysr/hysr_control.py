@@ -395,7 +395,13 @@ ExpectedSuperclass = typing.TypeVar("ExpectedSuperclass", bound=object)
 
 
 def _get_class(class_path: str) -> typing.Type:
+    """
+    class_path: something like "package.subpackage.module.class_name".
+    Imports package.subpackage.module and returns the class.
+    """
 
+    # class_path is only the name of the class, which is thus expected
+    # to be in global scope
     if "." not in class_path:
         try:
             class_ = globals()[class_path]
@@ -404,25 +410,19 @@ def _get_class(class_path: str) -> typing.Type:
                 f"class {class_path} could not be found in the global scope"
             )
 
+    # importing the package the class belongs to
     parts = class_path.split(".")
-    package = parts[0]
+    to_import = ".".join(parts[:-1])
     try:
-        package = globals()[package]
-    except KeyError:
+        imported = importlib.import_module(to_import)
+    except ModuleNotFoundError as e:
         raise ValueError(
-            f"package {package} (requested for class {class_path}) could not be found in the global scope"
+            f"failed to import {to_import} (needed to instantiate {class_path}): {e}"
         )
 
-    module = package
-    for module_ in parts[1:-1]:
-        try:
-            module = getattr(module, module_)
-        except AttributeError:
-            raise ValueError(
-                f"package/module {module_} (requested for class {class_path}) could not be found in {module}"
-            )
+    # getting the class
     try:
-        class_ = getattr(module, parts[-1])
+        class_ = getattr(imported, parts[-1])
     except AttributeError:
         raise ValueError(
             f"class {parts[-1]} (provided path: {class_path}) could not be found"
@@ -435,7 +435,12 @@ def _instantiate(
     factory_class: hysr_types.FactoryClass,
     expected_superclass: typing.Type[ExpectedSuperclass],
 ) -> ExpectedSuperclass:
-
+    """
+    Uses the information of the factory class (i.e. class name and
+    arguments) to import the required package and instantiate
+    the class. Also checks the class is a subclass of expected
+    super class (ValueError raised if not).
+    """
     class_name, args, kwargs = factory_class
 
     # getting the class from its path
@@ -597,7 +602,7 @@ def hysr_control_from_toml_content(toml_string: str) -> HysrControl:
             try:
                 imported = importlib.import_module(str(import_))
             except ModuleNotFoundError as e:
-                raise ModuleNotFoundError(
+                raise ValueError(
                     f"hysr control factory: failed to import module {import_}: " f"{e}"
                 )
             globals()[import_] = imported
