@@ -475,7 +475,7 @@ def _instantiate(
             f"arguments, but {len(args)} provided"
         )
 
-    # checking we have the expected of kwargs
+    # checking we have the expected number of kwargs
     if nb_kwargs != len(kwargs):
         raise ValueError(
             f"the class {class_name} request {nb_kwargs} "
