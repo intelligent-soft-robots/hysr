@@ -10,7 +10,7 @@ class Pose:
     orientation (euler angles).
     """
 
-    def __init__(self, position: typing.Sequence[float], orientation: str):
+    def __init__(self, position: typing.Sequence[float], orientation: str) -> None:
         self.position = position
         self.orientation = orientation
 
@@ -25,7 +25,7 @@ class Scene:
 
     def __init__(
         self, robot_type: pam_mujoco.RobotType, robot_pose: Pose, table_pose: Pose
-    ):
+    ) -> None:
         self.robot_type = robot_type
         self.robot = robot_pose
         self.table = table_pose

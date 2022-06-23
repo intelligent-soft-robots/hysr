@@ -222,3 +222,18 @@ are expected to be None. If the ball had a contact with
 the racket, min_distance_ball_target is expected to be
 None.
 """
+
+FactoryClass = typing.Tuple[
+    str,
+    typing.Sequence[typing.Any],
+    typing.Dict[str, typing.Any],
+]
+"""
+Expected:
+- class name, possibly including its path, e.g. 'hysr.MainSim'
+- *args
+- **kwargs
+It will be used by hysr_control.hysr_control_factory to
+import the module (that should encapsulate the class), and instantiate the class(es) using the
+provided arguments.
+"""

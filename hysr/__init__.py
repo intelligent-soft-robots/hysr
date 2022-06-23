@@ -21,5 +21,11 @@ from .ball_trajectories import (
     IndexedRecordedTrajectory,
     RandomRecordedTrajectory,
 )
-from .hysr_control import HysrControl
+from .hysr_control import (
+    HysrControl,
+    hysr_control_factory,
+    hysr_control_from_toml_content,
+    hysr_control_from_toml_file,
+)
 from . import rewards
+from . import config

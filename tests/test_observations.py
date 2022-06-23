@@ -4,7 +4,7 @@ import math
 import typing
 import functools
 import itertools
-import context # type: ignore
+import context  # type: ignore
 from hysr import hysr_types
 from hysr import observations
 

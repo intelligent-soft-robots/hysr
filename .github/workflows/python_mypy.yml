@@ -12,7 +12,7 @@ jobs:
           python-version: 3.8
       - name: Install
         run: |
-          python3 -m pip install mypy types-PyYAML
+          python3 -m pip install mypy types-PyYAML types-toml
       - name: Add matcher
         run: |
           echo "::add-matcher::.github/workflows/mypy-problem-matcher.json"

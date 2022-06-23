@@ -1,3 +1,5 @@
+import pathlib
+import toml
 import typing
 import functools
 import o80
@@ -7,6 +9,7 @@ from .main_sim import MainSim
 from .extra_balls import ExtraBallsSet
 from .parallel_bursts import Burster, ParallelBursts
 from . import hysr_types
+from . import config
 
 
 class _FrequencyController:
@@ -384,3 +387,143 @@ class HysrControl:
         """
         self.to_robot_position(starting_posture, position_controller_factory)
         self._frequency_controller.reset()
+
+
+def hysr_control_factory(
+    pressure_robot: hysr_types.FactoryClass,
+    main_sim: hysr_types.FactoryClass,
+    extra_balls: typing.Iterable[hysr_types.FactoryClass],
+    mujoco_time_step: float,
+    algorithm_time_step: float
+) -> HysrControl:
+    """
+    Returns an instance of HysrControl based on the provided
+    arguments.
+    """
+    return HysrControl(
+        config.instantiate(pressure_robot, PressureRobot),
+        config.instantiate(main_sim, MainSim),
+        [
+            config.instantiate(extra_ball, ExtraBallsSet)
+            for extra_ball in extra_balls
+        ],
+        mujoco_time_step,
+        algorithm_time_step,
+    )
+
+
+def hysr_control_from_toml_content(toml_string: str) -> HysrControl:
+    """
+    Instantiate HysrControl based on toml configuration.
+    toml_string should be toml formated content, with at least the keys:
+    - 'pressure_robot', 'main_sim': should have at least the keys 'module' and
+      the key 'class' (string content) and optionally the keys 'args' and 'kwargs'.
+      The value for 'args' should be either a list or a string. If the latest, the
+      string should evaluate to a list. The value for 'kwargs' should be a dict or a
+      string. If the latest, it should evaluate to a dict. Instances will be created
+      by importing the class from the module, and instantiating the class passing the
+      provided args and kargs. The classes should be subclasses of hysr.PressureRobot
+      and hysr.MainSim.
+    - 'algorithm_time_step' and "mujoco_time_step": should be float (in seconds)
+    Optional are the keys 'extra_balls' and 'imports':
+    - 'extra_balls': If provided, the value for 'extra_balls'
+      should be a dict, with each entry providing the configuration required to instantiate
+      hysr.ExtraBalls (or a subclass of it). The key of each entry is arbitrary and will
+      not be used.
+    - 'imports': list of packages (as strings) to import before constructing the instances. May be useful
+      if the args and kwargs are string to evaluate.
+    """
+
+    try:
+        t = toml.loads(toml_string)
+    except toml.TomlDecodeError as tde:
+        raise ValueError(f"hysr control factory: invalid toml content: {tde}")
+
+    # get the (optional) list of packages
+    # to import
+    try:
+        imports = t["imports"]
+    except KeyError:
+        imports = ()
+    if isinstance(imports, str):
+        imports = (imports,)
+
+    # reading from toml the values for algo time step
+    # and mujoco time step
+    for k in ("algorithm_time_step", "mujoco_time_step"):
+        if k not in t.keys():
+            raise ValueError(
+                f"hysr control factory: the toml configuration does not provide the required key: '{k}'"
+            )
+    try:
+        algorithm_time_step = float(t["algorithm_time_step"])
+    except TypeError:
+        raise ValueError(
+            "hysr control factory: the toml configuration provide an invalid value for 'algorithm_time_step' (should be a float)"
+        )
+    try:
+        mujoco_time_step = float(t["mujoco_time_step"])
+    except TypeError:
+        raise ValueError(
+            "hysr control factory: the toml configuration provide an invalid value for 'mujoco_time_step' (should be a float)"
+        )
+
+    required_keys = ("pressure_robot", "main_sim")
+    for rk in required_keys:
+        if rk not in t.keys():
+            raise ValueError(
+                "hysr control factory: the toml configuration is missing the required key: {rk}"
+            )
+
+    # reading from toml the configuration for the pressure
+    # robot and the main simulation
+    pressure_robot = config.read_factory_class(
+        "hysr_control_factory (pressure_robot)", t["pressure_robot"], imports=imports
+    )
+    main_sim = config.read_factory_class(
+        "hysr_control_factory (main_sim)", t["main_sim"], imports=imports
+    )
+
+    # reading from toml the configurations for the extra balls
+    if "extra_balls" in t.keys():
+        if not isinstance(t["extra_balls"], dict):
+            raise ValueError(
+                "hysr control factory: the toml configuration for 'extra_balls' should be a dictionary"
+            )
+        extra_balls = [
+            config.read_factory_class(
+                f"hysr_control_factory (extra_balls/{key})",
+                t["extra_balls"][key],
+                imports=imports,
+            )
+            for key in t["extra_balls"].keys()
+        ]
+    else:
+        extra_balls = []
+
+    return hysr_control_factory(
+        pressure_robot, main_sim, extra_balls, mujoco_time_step, algorithm_time_step
+    )
+
+
+def hysr_control_from_toml_file(file_path: pathlib.Path) -> HysrControl:
+    """
+    Calls hysr_control_from_toml_content. Content of 'file_path' should
+    be toml formatted.
+    """
+
+    if not file_path.is_file():
+        raise FileNotFoundError(
+            f"hysr control factory: failed to find toml configuration file: {file_path}"
+        )
+
+    content = file_path.read_text()
+
+    try:
+        hysr_control = hysr_control_from_toml_content(content)
+    except ValueError as ve:
+        raise ValueError(
+            f"failed to use configuration file {file_path} to instantiate HysrControl: {ve}"
+        )
+
+    return hysr_control
