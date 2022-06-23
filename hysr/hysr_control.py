@@ -411,8 +411,7 @@ def _get_class(class_path: str) -> typing.Type:
             )
 
     # importing the package the class belongs to
-    parts = class_path.split(".")
-    to_import = ".".join(parts[:-1])
+    to_import,class_name = class_path.rsplit(".",1)
     try:
         imported = importlib.import_module(to_import)
     except ModuleNotFoundError as e:
@@ -422,10 +421,10 @@ def _get_class(class_path: str) -> typing.Type:
 
     # getting the class
     try:
-        class_ = getattr(imported, parts[-1])
+        class_ = getattr(imported, class_name)
     except AttributeError:
         raise ValueError(
-            f"class {parts[-1]} (provided path: {class_path}) could not be found"
+            f"class {class_name} (provided path: {class_path}) could not be found"
         )
 
     return class_
@@ -476,10 +475,10 @@ def _instantiate(
         )
 
     # checking we have the expected of kwargs
-    if nb_kwargs != len(kwargs):
+    if len(kwargs)>nb_kwargs:
         raise ValueError(
-            f"the class {class_name} request {nb_kwargs} "
-            f"arguments, but {len(kwargs)} provided"
+            f"the class {class_name} takes at most {nb_kwargs} "
+            f"key-words arguments, but {len(kwargs)} provided"
         )
 
     # checking all kwargs are accepted by class_
