@@ -596,7 +596,7 @@ def hysr_control_from_toml_content(toml_string: str) -> HysrControl:
         imports = t["imports"]
         if not isinstance(imports, collections.abc.Iterable):
             raise ValueError(
-                f"hysr control factory: the toml configuration has an unexpected value for imports (should be iterable of string)"
+                "hysr control factory: the toml configuration has an unexpected value for imports (should be iterable of string)"
             )
         for import_ in imports:
             try:
@@ -618,13 +618,13 @@ def hysr_control_from_toml_content(toml_string: str) -> HysrControl:
         algorithm_time_step = float(t["algorithm_time_step"])
     except TypeError:
         raise ValueError(
-            f"hysr control factory: the toml configuration provide an invalid value for 'algorithm_time_step' (should be a float)"
+            "hysr control factory: the toml configuration provide an invalid value for 'algorithm_time_step' (should be a float)"
         )
     try:
         mujoco_time_step = float(t["mujoco_time_step"])
     except TypeError:
         raise ValueError(
-            f"hysr control factory: the toml configuration provide an invalid value for 'mujoco_time_step' (should be a float)"
+            "hysr control factory: the toml configuration provide an invalid value for 'mujoco_time_step' (should be a float)"
         )
 
     # reading from toml the configuration for the pressure
@@ -636,7 +636,7 @@ def hysr_control_from_toml_content(toml_string: str) -> HysrControl:
     if "extra_balls" in t.keys():
         if not isinstance(t["extra_balls"], dict):
             raise ValueError(
-                f"hysr control factory: the toml configuration for 'extra_balls' should be a dictionary"
+                "hysr control factory: the toml configuration for 'extra_balls' should be a dictionary"
             )
         extra_balls = [
             _read_factory_class(t["extra_balls"], key)
