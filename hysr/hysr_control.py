@@ -88,6 +88,27 @@ class _FrequencyController:
             self._frequency_manager = o80.FrequencyManager(self._frequency)
 
 
+class Episode:
+    """
+    Encapsulate all data related to an episode:
+    - the episode number
+    - the number of steps
+    - all observed states (one per step)
+    """
+
+    def __init__(self, episode: int = 0) -> None:
+        self.episode = episode
+        self.nb_step: int = 0
+        self.states: typing.List[hysr_types.States] = []
+
+    def add(self, states: hysr_types.States) -> None:
+        """
+        Add a step to the episode
+        """
+        self.nb_step += 1
+        self.states.append(states)
+
+
 class HysrControl:
     """
     Convenience wrapper over the pressure robot, the main simulation and the extra
@@ -154,6 +175,10 @@ class HysrControl:
         )
 
         self._pressure_robot_time_step = pressure_robot.get_time_step()
+
+        # current episode. Steps will be added to it
+        # in the step function. Returned by the reset function.
+        self._episode = Episode()
 
     def is_accelerated_time(self):
         """
@@ -239,18 +264,21 @@ class HysrControl:
         Perform, in this order:
         1- read the joint positions and velocities from the real/pseudo-real robot
         2- read the ball informations from the simulations (main and extra balls)
-        3- apply the desired pressures to the real/pseudo-real robot
-        4- set the joint positions and velocities of the real/pseudo-real robot
+        3- save the states in the current instance of Episode
+        4- apply the desired pressures to the real/pseudo-real robot
+        5- set the joint positions and velocities of the real/pseudo-real robot
           (step 1) to the main and extra ball simulation
-        5- Burst all simulations (only main sim and extra balls if the real/pseudo-real
+        6- Burst all simulations (only main sim and extra balls if the real/pseudo-real
            robot is running in real time, otherwise also the pseudo-real robot)
-        6- returns the state (hysr.hysr_types.States) as read in step 1 and 2
+        7- returns the state (hysr.hysr_types.States) as read in step 1 and 2
         """
         # step 1 and 2
         states: hysr_types.States = self.get_states()
         # step 3
-        self.set_desired_pressures(desired_pressures)
+        self._episode.add(states)
         # step 4
+        self.set_desired_pressures(desired_pressures)
+        # step 5
         self._main_sim.set_robot(
             states.pressure_robot.joint_positions,
             states.pressure_robot.joint_velocities,
@@ -260,9 +288,9 @@ class HysrControl:
                 states.pressure_robot.joint_positions,
                 states.pressure_robot.joint_velocities,
             )
-        # step 5
-        self._parallel_bursts.burst(self._frequency_controller.get_nb_bursts())
         # step 6
+        self._parallel_bursts.burst(self._frequency_controller.get_nb_bursts())
+        # step 7
         return states
 
     def enforce_algo_frequency(self):
@@ -366,29 +394,39 @@ class HysrControl:
             if not self._accelerated_time:
                 frequency_manager.wait()
 
-    def instant_reset(self) -> None:
+    def instant_reset(self) -> Episode:
         """
         Do a full simulation reset, i.e. restore the state of the
         first simulation step, where all items are set according
         to the mujoco xml configuration file.
+        Returns the instance of Episode that the call to this
+        method finished.
         """
         self._pressure_robot.reset()
         self._main_sim.reset()
         for extra_ball in self._extra_balls:
             extra_ball.reset()
         self._frequency_controller.reset()
+        finished_episode = self._episode
+        self._episode = Episode(episode=(finished_episode.episode + 1))
+        return finished_episode
 
     def natural_reset(
         self,
         starting_posture: hysr_types.JointStates,
         position_controller_factory: o80_pam.position_control.PositionControllerFactory,
-    ) -> None:
+    ) -> Episode:
         """
         Move the robots to the starting posture (desired position for each
         joint, in radian) using a position controller
+        Returns the instance of Episode that the call to this
+        method finished.
         """
         self.to_robot_position(starting_posture, position_controller_factory)
         self._frequency_controller.reset()
+        finished_episode = self._episode
+        self._episode = Episode(episode=(finished_episode.episode + 1))
+        return finished_episode
 
 
 def hysr_control_factory(
@@ -439,8 +477,8 @@ def hysr_control_from_toml_content(toml_string: str) -> HysrControl:
         raise ValueError(f"hysr control factory: invalid toml content: {tde}")
 
     # importing requested imports, if any
-    config.import_packages("hysr control factory",t)
-    
+    config.import_packages("hysr control factory", t)
+
     # reading from toml the values for algo time step
     # and mujoco time step
     for k in ("algorithm_time_step", "mujoco_time_step"):
@@ -511,7 +549,7 @@ def hysr_control_from_toml_file(file_path: pathlib.Path) -> HysrControl:
     content = file_path.read_text()
 
     try:
-        rewards = hysr_control_from_toml_content(content)
+        hysr_control = hysr_control_from_toml_content(content)
     except ValueError as ve:
         raise ValueError(
             f"failed to use configuration file {file_path} to instantiate HysrControl: {ve}"

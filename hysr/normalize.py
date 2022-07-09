@@ -270,6 +270,7 @@ def normalize_main_sim_state(
     Cast all values to [0.,1.]
     """
     return MainSimState(
+        normalize_position(state.goal_position, position_box),
         normalize_position(state.ball_position, position_box),
         normalize_velocity_vector(state.ball_velocity, max_velocity),
         normalize_joint_states_position(state.joint_positions),

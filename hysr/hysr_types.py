@@ -74,6 +74,8 @@ class MainSimState:
 
     Attributes
     ----------
+    goal_position: 3d float
+      position of the goal
     ball_position: 3d float
       position of the ball
     ball_velocity: 3d float
@@ -100,6 +102,7 @@ class MainSimState:
       time stamp of the mujoco simulation (nanoseconds)
     """
 
+    goal_position: Point3D = (0.0, 0.0, 0.0)
     ball_position: Point3D = (0.0, 0.0, 0.0)
     ball_velocity: Point3D = (0.0, 0.0, 0.0)
     joint_positions: JointStates = (0.0, 0.0, 0.0, 0.0)
@@ -222,6 +225,17 @@ are expected to be None. If the ball had a contact with
 the racket, min_distance_ball_target is expected to be
 None.
 """
+
+MultiRewards = typing.Union[
+    float, typing.Tuple[float, typing.Sequence[typing.Sequence[float]]]
+]
+"""
+Either a float (i.e. a "normal" reward) or a float ("main reward")
+and a list of "secondary" rewards. A use-case is the main reward
+being the reward in of main simulation and the secondary rewards the
+rewards of the extra balls simulations.
+"""
+
 
 FactoryClass = typing.Tuple[
     str,

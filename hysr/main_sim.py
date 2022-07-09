@@ -84,6 +84,7 @@ class MainSim:
 
         self._frontend_robot = self._handle.frontends[_robot_segment_id]
         self._frontend_ball = self._handle.frontends[_ball_segment_id]
+        self._frontend_goal = self._handle.frontends[_goal_segment_id]
         self._trajectory_getter = trajectory_getter
 
     def set_trajectory_getter(self, trajectory_getter: TrajectoryGetter) -> None:
@@ -178,6 +179,12 @@ class MainSim:
     def get_state(self) -> hysr_types.MainSimState:
         """
         Returns the current state of the simulation."""
+        # goal observation
+        goal_obs = self._frontend_goal.latest()
+        goal = goal_obs.get_observed_states()
+        goal_position = typing.cast(
+            hysr_types.Point3D, tuple([goal.get(2 * dim).get() for dim in range(3)])
+        )
         # ball observation
         ball_obs = self._frontend_ball.latest()
         ball = ball_obs.get_observed_states()
@@ -195,6 +202,7 @@ class MainSim:
         )
         # returning
         return hysr_types.MainSimState(
+            goal_position,
             ball_position,
             ball_velocity,
             robot_obs.get_positions(),
@@ -204,6 +212,13 @@ class MainSim:
             robot_obs.get_iteration(),
             robot_obs.get_time_stamp(),
         )
+
+    def set_goal(self, position: hysr_types.Point3D) -> None:
+        """
+        Set a command for the o80 backend of the goal
+        """
+        self._frontend_goal.add_command(position, (0, 0, 0), o80.Mode.OVERWRITE)
+        self._frontend_goal.pulse()
 
     def set_robot(
         self, positions: hysr_types.JointStates, velocities: hysr_types.JointStates

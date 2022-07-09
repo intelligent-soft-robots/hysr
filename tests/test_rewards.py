@@ -1,6 +1,27 @@
 from enum import Enum
+import pytest
 import typing
 import hysr
+
+
+@pytest.fixture
+def get_factory_class(
+    request, scope="function"
+) -> typing.Generator[hysr.hysr_types.FactoryClass, None, None]:
+
+    reward_class: typing.Union[
+        typing.Type[hysr.native_rewards.BasicRewards],
+        typing.Type[hysr.native_rewards.SmashRewards],
+    ]
+
+    c: float = (3.0,)
+    rtt_cap: float = (-0.2,)
+
+    reward_class = request.test_class
+
+    yield hysr.hysr_types.FactoryClass(
+        f"hysr.native_rewards.{reward_class}", [c, rtt_cap], {}
+    )
 
 
 class Distance(Enum):
@@ -106,8 +127,8 @@ def test_basic_and_smash_reward():
     """
 
     reward_types = {
-        "basic_reward": hysr.rewards.basic_reward,
-        "smash_reward": hysr.rewards.smash_reward,
+        "basic_reward": hysr.native_rewards.basic_reward,
+        "smash_reward": hysr.native.rewards.smash_reward,
     }
 
     for reward_type, reward_function in reward_types.items():
@@ -236,3 +257,20 @@ def test_basic_and_smash_reward():
             assert r7 == r6
         else:
             assert r7 > r6
+
+
+@pytest.mark.parametrize(
+    "get_factory_class",
+    [[hysr.native_rewards.BasicRewards, hysr.native_rewards.SmashRewards]],
+    indirect=True,
+)
+def test_native_rewards_factory(get_factory_class):
+    """
+    Test reward_factory succeed in returning an instance of Rewards.
+    """
+
+    factory_class: hysr.FactoryClass = get_factory_class
+
+    reward: hysr.Rewards = hysr.reward_factory(
+        factory_class
+    )  # noqa: F841 (variable not used)

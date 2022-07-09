@@ -29,3 +29,4 @@ from .hysr_control import (
 )
 from . import rewards
 from . import config
+from . import native_rewards

@@ -5,18 +5,18 @@ import inspect
 from . import hysr_types
 
 
-def import_packages(label: str, config: typing.Dict[str,typing.Any])->None:
+def import_packages(label: str, config: typing.Dict[str, typing.Any]) -> None:
     """
-    config is a dictionary, which may have an "imports" key. If the related a value is a string, 
+    config is a dictionary, which may have an "imports" key. If the related a value is a string,
     then attempt to import a package of this name. If the value is an iterable, then attempt to import
-    all packages named after then entries of the iterable. 
+    all packages named after then entries of the iterable.
     If there is no key "imports", does nothing.
     """
     try:
         imports = config["imports"]
     except KeyError:
         return
-    if isinstance(imports,str):
+    if isinstance(imports, str):
         imports = (imports,)
     if not isinstance(imports, collections.abc.Iterable):
         raise ValueError(
@@ -26,9 +26,8 @@ def import_packages(label: str, config: typing.Dict[str,typing.Any])->None:
         try:
             imported = importlib.import_module(str(import_))
         except ModuleNotFoundError as e:
-            raise ValueError(
-                f"{label}: failed to import module {import_}: " f"{e}"
-            )
+            raise ValueError(f"{label}: failed to import module {import_}: " f"{e}")
+
 
 def _get_class(class_path: str) -> typing.Type:
     """
@@ -65,7 +64,10 @@ def _get_class(class_path: str) -> typing.Type:
 
     return class_
 
+
 ExpectedSuperclass = typing.TypeVar("ExpectedSuperclass", bound=object)
+
+
 def instantiate(
     factory_class: hysr_types.FactoryClass,
     expected_superclass: typing.Type[ExpectedSuperclass],

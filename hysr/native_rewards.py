@@ -3,6 +3,8 @@ import typing
 from typing import Optional
 from . import hysr_types
 from . import rewards
+from . import hysr_control
+
 
 def _norm(vector: hysr_types.Point3D) -> float:
     """
@@ -35,21 +37,21 @@ def _no_hit_reward(min_distance_ball_racket: float) -> float:
 
 
 def _return_task_reward(
-    min_distance_ball_target: float, c: float, rtt_cap: float
+    min_distance_ball_goal: float, c: float, rtt_cap: float
 ) -> float:
     # used for rewards for which the ball did
     # touch the racket
-    reward = 1.0 - ((min_distance_ball_target / c) ** 0.75)
+    reward = 1.0 - ((min_distance_ball_goal / c) ** 0.75)
     reward = max(reward, rtt_cap)
     return reward
 
 
 def _smash_task_reward(
-    min_distance_ball_target: float, max_ball_velocity: float, c: float, rtt_cap: float
+    min_distance_ball_goal: float, max_ball_velocity: float, c: float, rtt_cap: float
 ) -> float:
     # used for rewards for which the ball did
     # touch the racket, with smashing objective
-    reward = 1.0 - ((min_distance_ball_target / c) ** 0.75)
+    reward = 1.0 - ((min_distance_ball_goal / c) ** 0.75)
     reward = reward * max_ball_velocity
     reward = max(reward, rtt_cap)
     return reward
@@ -58,7 +60,7 @@ def _smash_task_reward(
 def _compute_reward(
     smash: bool,
     min_distance_ball_racket: Optional[float],
-    min_distance_ball_target: Optional[float],
+    min_distance_ball_goal: Optional[float],
     max_ball_velocity: Optional[float],
     c: float,
     rtt_cap: float,
@@ -74,16 +76,16 @@ def _compute_reward(
 
     # the ball did hit the racket, so the reward
     # will depend on the distance between the
-    # ball and the target. Checking it is not None.
-    if min_distance_ball_target is None:
+    # ball and the goal. Checking it is not None.
+    if min_distance_ball_goal is None:
         raise ValueError(
             "Computing reward: the ball hit the racket "
-            "but min_distance_ball_target, required to "
+            "but min_distance_ball_goal, required to "
             "compute the reward, is None"
         )
 
     # the ball did hit the racket, so computing
-    # a reward based on the ball / target
+    # a reward based on the ball / goal
 
     if smash:
         # computing the smash reward requires max_ball_velocity, which
@@ -93,17 +95,15 @@ def _compute_reward(
                 "Computing reward: max_ball_velocity, required to "
                 "compute the smash reward, is None"
             )
-        return _smash_task_reward(
-            min_distance_ball_target, max_ball_velocity, c, rtt_cap
-        )
+        return _smash_task_reward(min_distance_ball_goal, max_ball_velocity, c, rtt_cap)
 
     else:
-        return _return_task_reward(min_distance_ball_target, c, rtt_cap)
+        return _return_task_reward(min_distance_ball_goal, c, rtt_cap)
 
 
 def basic_reward(
     min_distance_ball_racket: Optional[float],
-    min_distance_ball_target: Optional[float],
+    min_distance_ball_goal: Optional[float],
     max_ball_velocity: Optional[float],
     c: float,
     rtt_cap: float,
@@ -112,7 +112,7 @@ def basic_reward(
     Computes a reward suitable for table tennis:
     the closest the ball goes to the racket, the
     higher the reward. If there is a contact: the closest
-    the ball to the target, the highest the reward.
+    the ball to the goal, the highest the reward.
     For details, see the publication "Learning to Play Table
     Tennis From Scratch using Muscular Robots"
 
@@ -121,7 +121,7 @@ def basic_reward(
     min_distance_ball_racket:
       in meters, None if there has been a contact
       between the ball and the racket
-    min_distance_ball_target:
+    min_distance_ball_goal:
       in meters, None if there has been no contact
     max_ball_velocity:
       in meters per second, as observed after contact
@@ -135,7 +135,7 @@ def basic_reward(
     return _compute_reward(
         False,
         min_distance_ball_racket,
-        min_distance_ball_target,
+        min_distance_ball_goal,
         max_ball_velocity,
         c,
         rtt_cap,
@@ -144,20 +144,20 @@ def basic_reward(
 
 def smash_reward(
     min_distance_ball_racket: Optional[float],
-    min_distance_ball_target: Optional[float],
+    min_distance_ball_goal: Optional[float],
     max_ball_velocity: Optional[float],
     c: float,
     rtt_cap: float,
 ):
     """
     Similar to basic_reward, except that the max_ball_velocity
-    is used: the faster the ball goes toward the target,
+    is used: the faster the ball goes toward the goal,
     the higher the reward
     """
     return _compute_reward(
         True,
         min_distance_ball_racket,
-        min_distance_ball_target,
+        min_distance_ball_goal,
         max_ball_velocity,
         c,
         rtt_cap,
@@ -166,7 +166,7 @@ def smash_reward(
 
 def compute_reward(
     reward_function: hysr_types.RewardFunction,
-    target: hysr_types.Point3D,
+    goal_positions: typing.Sequence[hysr_types.Point3D],
     ball_positions: typing.Sequence[hysr_types.Point3D],
     ball_velocities: typing.Iterable[hysr_types.Point3D],
     contacts: typing.Sequence[bool],
@@ -179,7 +179,7 @@ def compute_reward(
     Computes the minimal distance
     between the ball and the racket (None if contact occured),
     the maximal observed ball velocity (None if no contact occured)
-    and the minimal distance between the ball and the target
+    and the minimal distance between the ball and the goal
     (None if no contact between the ball and the racket occured);
     and apply the reward function.
     """
@@ -190,20 +190,26 @@ def compute_reward(
 
     if not contact:
         min_distance_ball_racket = _min_distance(ball_positions, racket_cartesians)
-        min_distance_ball_target = None
+        min_distance_ball_goal = None
         max_ball_velocity = None
 
     else:
         contact_index = contacts.index(True)
         min_distance_ball_racket = None
-        # trimming ball positions to steps after contact
-        positions = ball_positions[contact_index:]
-        min_distance_ball_target = min([_distance(p, target) for p in positions])
+        # trimming goal and ball positions to steps after contact
+        goal_position_ = goal_positions[contact_index:]
+        ball_positions_ = ball_positions[contact_index:]
+        min_distance_ball_goal = min(
+            [
+                _distance(ball, goal)
+                for ball, goal in zip(ball_positions_, goal_positions)
+            ]
+        )
         max_ball_velocity = max([_norm(v) for v in ball_velocities])
 
     return reward_function(
         min_distance_ball_racket,
-        min_distance_ball_target,
+        min_distance_ball_goal,
         max_ball_velocity,
         c,
         rtt_cap,
@@ -212,23 +218,17 @@ def compute_reward(
 
 def compute_rewards(
     reward_function: hysr_types.RewardFunction,
-    target: hysr_types.Point3D,
-    states_history: hysr_types.StatesHistory,
+       episode: hysr_control.Episode,
     c: float,
     rtt_cap: float,
-) -> typing.Union[
-    float,  # if no extra balls
-    typing.Tuple[
-        float, typing.Sequence[typing.Sequence[float]]
-    ],  # if extra balls, one list per extra balls set
-]:
+) -> hysr_types.MultiRewards:
 
     """
     For each ball (in the main simulation and in the extra balls
     simulations): Computes the minimal distance
     between the ball and the racket (None if contact occured),
     the maximal observed ball velocity (None if no contact occured)
-    and the minimal distance between the ball and the target
+    and the minimal distance between the ball and the goal
     (None if no contact between the ball and the racket occured);
     and apply the reward function. Returns either a float (if no
     extra balls) or both a float (reward for the ball in the main
@@ -238,13 +238,14 @@ def compute_rewards(
 
     # reward for the ball of the main sim
     main_sims = [s.main_sim for s in states_history]
+    goal_positions = [ms.goal_position for ms in main_sims]
     ball_positions = [ms.ball_position for ms in main_sims]
     ball_velocities = [ms.ball_velocity for ms in main_sims]
     contacts = [ms.contact.contact_occured for ms in main_sims]
     racket_cartesians = [ms.racket_cartesian[0] for ms in main_sims]
     main_ball_reward = compute_reward(
         reward_function,
-        target,
+        goal_positions,
         ball_positions,
         ball_velocities,
         contacts,
@@ -282,7 +283,7 @@ def compute_rewards(
             rewards.append(
                 compute_reward(
                     reward_function,
-                    target,
+                    goal,
                     ball_positions,
                     ball_velocities,
                     contacts,
@@ -298,48 +299,30 @@ def compute_rewards(
 
 
 class BasicRewards(rewards.Rewards):
-
-    def __init__(
-            self,
-            c: float,
-            rtt_cap: float
-    ):
+    def __init__(self, c: float, rtt_cap: float):
         self._c = c
         self._rtt_cap = float
 
-    def compute_rewards(
-            self,
-            hysr_control: HysrControl
-    )->float:
+    def compute_rewards(self, episode: hysr_control.Episode) -> hysr_types.MultiRewards:
+        goal: hysr_types.Point3D = hysr_control.get_states().main_sim.goal_position
         return compute_rewards(
             basic_reward,
-            hysr_control.get_target(),
-            hysr_control.get_states_history(),
+            episode,
             self._c,
-            self._rtt_cap
-    )
+            self._rtt_cap,
+        )
+
 
 class SmashRewards(rewards.Rewards):
-
-    def __init__(
-            self,
-            c: float,
-            rtt_cap: float
-    ):
+    def __init__(self, c: float, rtt_cap: float):
         self._c = c
         self._rtt_cap = float
 
-    def compute_rewards(
-            self,
-            hysr_control: HysrControl
-    )->float:
+    def compute_rewards(self, episode: hysr_control.Episode) -> hysr_types.MultiRewards:
+        goal: hysr_types.Point3D = hysr_control.get_states().main_sim.goal_position
         return compute_rewards(
             smash_reward,
-            hysr_control.get_target(),
-            hysr_control.get_states_history(),
+            episode,
             self._c,
-            self._rtt_cap
-    )
-
-
-
+            self._rtt_cap,
+        )
