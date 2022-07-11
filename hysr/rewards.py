@@ -11,11 +11,8 @@ class Rewards:
     def __init__(self) -> None:
         pass
 
-    def compute(episode: hysr_control.Episode) -> hysr_types.MultiRewards:
+    def compute(self, episode: hysr_control.Episode) -> hysr_types.MultiRewards:
         raise NotImplementedError()
-
-    def reset(self) -> None:
-        pass
 
 
 def rewards_factory(factory_class: hysr_types.FactoryClass) -> Rewards:

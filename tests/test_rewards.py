@@ -14,14 +14,17 @@ def get_factory_class(
         typing.Type[hysr.native_rewards.SmashRewards],
     ]
 
-    c: float = (3.0,)
-    rtt_cap: float = (-0.2,)
+    c: float = 3.0
+    rtt_cap: float = -0.2
 
     reward_class = request.test_class
 
-    yield hysr.hysr_types.FactoryClass(
+    factory_class: hysr.hysr_types.FactoryClass = (
         f"hysr.native_rewards.{reward_class}", [c, rtt_cap], {}
     )
+        
+    yield factory_class
+
 
 
 class Distance(Enum):
@@ -106,7 +109,7 @@ def _compute_reward(
         ball_racket, ball_target, ball_velocity
     )
 
-    return hysr.rewards.compute_reward(
+    return hysr.native_rewards.compute_reward(
         reward_function,
         target,
         position_traj,

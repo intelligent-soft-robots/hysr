@@ -237,6 +237,7 @@ def compute_rewards(
     """
 
     # reward for the ball of the main sim
+    states_history: hysr_types.StatesHistory = episode.states 
     main_sims = [s.main_sim for s in states_history]
     goal_positions = [ms.goal_position for ms in main_sims]
     ball_positions = [ms.ball_position for ms in main_sims]
@@ -283,7 +284,7 @@ def compute_rewards(
             rewards.append(
                 compute_reward(
                     reward_function,
-                    goal,
+                    goal_positions,
                     ball_positions,
                     ball_velocities,
                     contacts,
@@ -301,10 +302,9 @@ def compute_rewards(
 class BasicRewards(rewards.Rewards):
     def __init__(self, c: float, rtt_cap: float):
         self._c = c
-        self._rtt_cap = float
+        self._rtt_cap = rtt_cap
 
     def compute_rewards(self, episode: hysr_control.Episode) -> hysr_types.MultiRewards:
-        goal: hysr_types.Point3D = hysr_control.get_states().main_sim.goal_position
         return compute_rewards(
             basic_reward,
             episode,
@@ -316,10 +316,9 @@ class BasicRewards(rewards.Rewards):
 class SmashRewards(rewards.Rewards):
     def __init__(self, c: float, rtt_cap: float):
         self._c = c
-        self._rtt_cap = float
-
+        self._rtt_cap = rtt_cap
+        
     def compute_rewards(self, episode: hysr_control.Episode) -> hysr_types.MultiRewards:
-        goal: hysr_types.Point3D = hysr_control.get_states().main_sim.goal_position
         return compute_rewards(
             smash_reward,
             episode,
